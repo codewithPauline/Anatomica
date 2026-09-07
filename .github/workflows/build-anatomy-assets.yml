@@ -30,9 +30,6 @@ jobs:
           URL='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip'
           OUT='/tmp/bodyparts3d.zip'
 
-          # The BodyParts3D archive is large and its server can occasionally
-          # close a connection early. Retry with resume so a transient network
-          # interruption does not restart the full 136 MB transfer.
           for attempt in 1 2 3 4 5 6; do
             echo "Download attempt ${attempt}/6"
             if [ -f "$OUT" ]; then
@@ -79,6 +76,16 @@ jobs:
               'brachialis.glb': ['FJ1486.obj'],
               'coracobrachialis.glb': ['FJ1488.obj'],
               'teres-major.glb': ['FJ1507.obj'],
+              'pronator-teres.glb': ['FJ1474.obj', 'FJ1516.obj'],
+              'flexor-carpi-radialis.glb': ['FJ1496.obj'],
+              'palmaris-longus.glb': ['FJ1502.obj'],
+              'flexor-carpi-ulnaris.glb': ['FJ1473.obj', 'FJ1518.obj'],
+              'brachioradialis.glb': ['FJ1487.obj'],
+              'extensor-carpi-radialis-longus.glb': ['FJ1490.obj'],
+              'extensor-carpi-radialis-brevis.glb': ['FJ1489.obj'],
+              'extensor-digitorum.glb': ['FJ1492.obj'],
+              'extensor-carpi-ulnaris.glb': ['FJ1472.obj', 'FJ1517.obj'],
+              'supinator.glb': ['FJ1505.obj'],
               'brachial-artery.glb': ['FJ2271.obj'],
               'cephalic-vein.glb': ['FJ2272.obj'],
           }
@@ -118,7 +125,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No new asset changes to commit.'
           else
-            git commit -m 'assets: add deeper shoulder and arm muscle GLBs'
+            git commit -m 'assets: add forearm flexor and extensor GLBs'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
