@@ -140,7 +140,7 @@ export const modelManifest = {
       sourceLabels: ['right brachialis'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     coracobrachialis: {
       path: '/models/upper-limb/coracobrachialis.glb',
@@ -150,7 +150,7 @@ export const modelManifest = {
       sourceLabels: ['right coracobrachialis'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     teresMajor: {
       path: '/models/upper-limb/teres-major.glb',
@@ -160,7 +160,7 @@ export const modelManifest = {
       sourceLabels: ['right teres major'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     medianNerve: { path: '/models/upper-limb/median-nerve.glb', system: 'nerves', status: 'pending-source' },
     musculocutaneousNerve: { path: '/models/upper-limb/musculocutaneous-nerve.glb', system: 'nerves', status: 'pending-source' },
