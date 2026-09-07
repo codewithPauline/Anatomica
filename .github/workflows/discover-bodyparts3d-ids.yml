@@ -1,0 +1,51 @@
+name: Discover BodyParts3D Upper-Limb IDs
+
+on:
+  push:
+    paths:
+      - '.github/workflows/discover-bodyparts3d-ids.yml'
+  workflow_dispatch:
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download official BodyParts3D mapping tables
+        run: |
+          set -euo pipefail
+          BASE='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST'
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 3 "$BASE/isa_parts_list_e.txt" -o /tmp/isa_parts_list_e.txt
+          curl -L --fail --retry 6 --retry-all-errors --retry-delay 3 "$BASE/isa_element_parts.txt" -o /tmp/isa_element_parts.txt
+
+      - name: Find target upper-limb concepts and atomic meshes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          targets = [
+              'brachialis',
+              'coracobrachialis',
+              'teres major',
+              'median nerve',
+              'musculocutaneous nerve',
+              'radial nerve',
+              'ulnar nerve',
+              'axillary nerve',
+          ]
+
+          tables = {
+              'IS-A PARTS': Path('/tmp/isa_parts_list_e.txt'),
+              'ELEMENT MAP': Path('/tmp/isa_element_parts.txt'),
+          }
+
+          for target in targets:
+              print(f'\n===== {target.upper()} =====')
+              for table_name, path in tables.items():
+                  print(f'-- {table_name} --')
+                  matches = [line.rstrip() for line in path.read_text(errors='replace').splitlines() if target.lower() in line.lower()]
+                  if matches:
+                      for line in matches[:50]:
+                          print(line)
+                  else:
+                      print('NO MATCH')
+          PY
