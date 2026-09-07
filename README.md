@@ -2,6 +2,8 @@
 
 > **Explore the human body from structure to function.**
 
+**Live demo:** https://codewithpauline.github.io/Anatomica/
+
 **Anatomica** is an open-source interactive 3D anatomy and physiology learning platform for medical, nursing, and health-science students. Its goal is to bridge the gap between cadaver-based anatomy, living physiology, and clinical reasoning through an explorable digital human body.
 
 ## Vision
@@ -28,15 +30,17 @@ The first milestone focuses on the upper limb and brachial plexus.
 - Quiz Mode with score tracking and explanatory feedback
 - Medical metadata separated from 3D geometry
 - Automatic GLB/glTF replacement of procedural teaching geometry when validated models are present
+- Real BodyParts3D GLBs now included for the right humerus, radius, ulna, biceps brachii, and triceps brachii
 - Licensed anatomical asset manifest and provenance workflow
 - Independent CI production-build verification
+- Live GitHub Pages deployment
 
 ### In progress
 
-- Replace procedural teaching geometry with validated BodyParts3D upper-limb meshes
+- Add scapula and clavicle to complete the shoulder-girdle context
+- Replace remaining procedural neurovascular teaching paths with validated anatomical geometry
 - Add upper-limb anatomical landmarks and spatial relationships
 - Add clinical lesion simulations
-- Publish the live GitHub Pages demo after Pages is enabled for the repository
 
 ## Core learning modes
 
@@ -77,7 +81,7 @@ See [`ASSETS.md`](ASSETS.md) for the model licensing and provenance policy.
 
 ## Anatomical data source
 
-The primary planned production anatomy source for v0.1 is **BodyParts3D** from The Database Center for Life Science. The current official archive licenses the database under **CC BY 4.0** with attribution.
+The primary production anatomy source for v0.1 is **BodyParts3D** from The Database Center for Life Science. The current official archive licenses the database under **CC BY 4.0** with attribution.
 
 Required attribution for derived BodyParts3D material:
 
@@ -117,7 +121,7 @@ Quiz Mode currently asks learners to identify upper-limb bones, muscles, and ner
 - **JavaScript / WebGL** — browser interaction
 - **glTF / GLB** — anatomical 3D assets
 - **Structured JavaScript data** — anatomy, brachial plexus, and quiz metadata
-- **GitHub Actions** — continuous build verification and planned GitHub Pages deployment
+- **GitHub Actions** — continuous build verification and GitHub Pages deployment
 
 ## Project structure
 
@@ -157,7 +161,10 @@ Anatomica/
 - [x] Automatic real-model replacement
 - [x] 3D asset provenance + license manifest
 - [x] Independent production-build CI
-- [ ] Validated upper-limb GLB base model
+- [x] GitHub Pages live deployment
+- [x] Real humerus, radius, and ulna GLBs
+- [x] Real biceps and triceps GLBs
+- [ ] Scapula + clavicle
 - [ ] Detailed brachial plexus roots/trunks/divisions/cord geometry
 - [ ] Clinical lesion simulation
 - [ ] Lower limb
@@ -185,7 +192,7 @@ Biologist, educator, and computational researcher.
 
 🚧 **Early development — v0.1**
 
-Current development target: **validated real upper-limb anatomy + detailed brachial plexus geometry + clinical interactions**.
+Current development target: **complete the real upper-limb shoulder context, improve nerve/vessel anatomy, and add clinical interactions**.
 
 ---
 
