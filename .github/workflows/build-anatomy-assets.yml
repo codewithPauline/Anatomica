@@ -1,0 +1,76 @@
+name: Build BodyParts3D Upper-Limb Assets
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build-anatomy-assets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install converters
+        run: pip install trimesh numpy
+
+      - name: Download official BodyParts3D mesh archive
+        run: |
+          curl -L --fail --retry 3 \
+            'https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip' \
+            -o /tmp/bodyparts3d.zip
+          mkdir -p /tmp/bodyparts3d
+          unzip -q /tmp/bodyparts3d.zip -d /tmp/bodyparts3d
+
+      - name: Convert selected upper-limb bones to GLB
+        run: |
+          mkdir -p public/models/upper-limb
+          python - <<'PY'
+          from pathlib import Path
+          import trimesh
+
+          root = Path('/tmp/bodyparts3d')
+          output = Path('public/models/upper-limb')
+          mapping = {
+              'BP9206.obj': 'humerus.glb',
+              'BP8464.obj': 'radius.glb',
+              'BP8233.obj': 'ulna.glb',
+          }
+
+          for source_name, target_name in mapping.items():
+              matches = list(root.rglob(source_name))
+              if not matches:
+                  raise FileNotFoundError(f'Could not find {source_name} in BodyParts3D archive')
+              source = matches[0]
+              loaded = trimesh.load(source, force='scene', process=False)
+              if isinstance(loaded, trimesh.Trimesh):
+                  scene = trimesh.Scene(loaded)
+              else:
+                  scene = loaded
+              data = scene.export(file_type='glb')
+              target = output / target_name
+              target.write_bytes(data)
+              print(f'{source_name} -> {target} ({target.stat().st_size:,} bytes)')
+          PY
+
+      - name: Commit generated GLBs
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/models/upper-limb/*.glb
+          if git diff --cached --quiet; then
+            echo 'No new asset changes to commit.'
+          else
+            git commit -m 'assets: add BodyParts3D humerus radius and ulna GLBs'
+            git push
+          fi
