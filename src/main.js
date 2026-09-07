@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { upperLimbStructures } from './data/upperLimb.js';
 import { modelManifest } from './data/modelManifest.js';
+import { brachialPlexus } from './data/brachialPlexus.js';
+import { quizQuestions } from './data/quizQuestions.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -9,13 +11,13 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <div class="shell">
     <aside class="sidebar">
-      <div>
+      <header>
         <p class="eyebrow">ANATOMICA v0.1</p>
         <h1>Upper Limb Explorer</h1>
         <p class="subtitle">Explore structure, function, pathways, and clinical relevance in an interactive 3D model.</p>
-      </div>
+      </header>
 
-      <div>
+      <section>
         <span class="section-label">Systems</span>
         <div class="system-list" aria-label="Anatomical systems">
           <button class="system active" data-system="skeleton">Skeleton</button>
@@ -23,38 +25,69 @@ app.innerHTML = `
           <button class="system" data-system="nerves">Nerves</button>
           <button class="system" data-system="vessels">Vessels</button>
         </div>
-      </div>
+      </section>
 
-      <div class="opacity-card">
+      <section class="opacity-card">
         <div class="opacity-head">
           <span class="section-label">Transparency</span>
           <span id="opacity-value">100%</span>
         </div>
-        <input id="opacity-slider" type="range" min="15" max="100" value="100" step="5" aria-label="Selected system transparency" />
-        <p>Adjusts the most recently selected anatomical system.</p>
-      </div>
+        <input id="opacity-slider" type="range" min="15" max="100" value="100" step="5" aria-label="Selected system opacity" />
+        <p id="opacity-system">Skeleton selected</p>
+      </section>
 
-      <div class="tool-row" aria-label="Viewer tools">
+      <section class="tool-row" aria-label="Viewer tools">
         <button id="isolate-btn" class="tool">Isolate</button>
         <button id="restore-btn" class="tool">Restore</button>
-        <button id="plexus-btn" class="tool accent">Brachial plexus</button>
-      </div>
+        <button id="plexus-btn" class="tool">Brachial plexus</button>
+        <button id="quiz-btn" class="tool accent">Quiz mode</button>
+      </section>
 
-      <div class="info-card" aria-live="polite">
+      <section id="plexus-card" class="learning-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Pathway explorer</span>
+            <strong>Brachial plexus</strong>
+          </div>
+          <span class="status-pill">C5–T1</span>
+        </div>
+        <div class="plexus-flow">
+          <div><span>Roots</span><b>${brachialPlexus.roots.join(' · ')}</b></div>
+          <div><span>Trunks</span><b>Upper · Middle · Lower</b></div>
+          <div><span>Divisions</span><b>Anterior · Posterior</b></div>
+          <div><span>Cords</span><b>Lateral · Posterior · Medial</b></div>
+        </div>
+        <div id="plexus-branches" class="branch-list"></div>
+      </section>
+
+      <section id="quiz-card" class="learning-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Practice</span>
+            <strong>Identify the structure</strong>
+          </div>
+          <span id="quiz-score" class="status-pill">0 / 0</span>
+        </div>
+        <p id="quiz-prompt" class="quiz-prompt"></p>
+        <p id="quiz-feedback" class="quiz-feedback">Click the correct structure in the 3D viewer.</p>
+        <button id="next-question" class="tool full" type="button">Next question</button>
+      </section>
+
+      <section id="info-card" class="info-card" aria-live="polite">
         <span class="label">Selected structure</span>
         <strong id="selected-name">Humerus</strong>
         <p id="selected-description"></p>
         <div id="details" class="details"></div>
         <div id="clinical" class="clinical"></div>
-      </div>
+      </section>
 
       <p class="hint">Drag to rotate · Scroll to zoom · Right-drag to pan · Click a structure to study it</p>
     </aside>
 
     <main class="viewer-wrap">
       <canvas id="viewer" aria-label="Interactive 3D upper limb anatomy viewer"></canvas>
-      <div id="viewer-badge" class="viewer-badge">Educational prototype · loading validated assets</div>
-      <div id="mode-badge" class="mode-badge" hidden>Brachial Plexus Mode</div>
+      <div id="viewer-badge" class="viewer-badge">Educational prototype · checking validated assets</div>
+      <div id="mode-badge" class="mode-badge" hidden></div>
     </main>
   </div>
 `;
@@ -66,7 +99,7 @@ scene.background = new THREE.Color(0x0b0e13);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
 camera.position.set(4.2, 2.2, 7.2);
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -93,22 +126,30 @@ const anatomicalGroups = {
 Object.values(anatomicalGroups).forEach((group) => scene.add(group));
 
 const systemOpacity = { skeleton: 1, muscles: 1, nerves: 1, vessels: 1 };
-let activeSystem = 'skeleton';
-
 const fallbackRegistry = new Map();
+const replacedStructures = new Set();
+let activeSystem = 'skeleton';
+let selectedMesh = null;
+let plexusMode = false;
+let quizMode = false;
+let quizIndex = 0;
+let quizCorrect = 0;
+let quizAttempts = 0;
+let quizAnswered = false;
+let realAssetCount = 0;
+
 function addFallback(structureKey, object) {
-  const items = fallbackRegistry.get(structureKey) ?? [];
-  items.push(object);
-  fallbackRegistry.set(structureKey, items);
+  const list = fallbackRegistry.get(structureKey) ?? [];
+  list.push(object);
+  fallbackRegistry.set(structureKey, list);
 }
 
 function capsuleBetween(start, end, radius, material) {
   const direction = new THREE.Vector3().subVectors(end, start);
-  const length = direction.length();
-  const geometry = new THREE.CapsuleGeometry(radius, Math.max(length - radius * 2, 0.05), 8, 20);
+  const geometry = new THREE.CapsuleGeometry(radius, Math.max(direction.length() - radius * 2, 0.05), 8, 20);
   const mesh = new THREE.Mesh(geometry, material.clone());
   mesh.position.copy(start).add(end).multiplyScalar(0.5);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
   return mesh;
 }
 
@@ -154,25 +195,24 @@ anatomicalGroups.muscles.visible = false;
 anatomicalGroups.nerves.visible = false;
 anatomicalGroups.vessels.visible = false;
 
-const floor = new THREE.Mesh(new THREE.CircleGeometry(2.8, 64), new THREE.MeshStandardMaterial({ color: 0x141922, roughness: 1, transparent: true, opacity: 0.65 }));
+const floor = new THREE.Mesh(
+  new THREE.CircleGeometry(2.8, 64),
+  new THREE.MeshStandardMaterial({ color: 0x141922, roughness: 1, transparent: true, opacity: 0.65 }),
+);
 floor.rotation.x = -Math.PI / 2;
 floor.position.y = -2.4;
 scene.add(floor);
 
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-let selectedMesh = humerus;
-let plexusMode = false;
-let realAssetCount = 0;
-
 function allMeshes() {
   const meshes = [];
-  Object.values(anatomicalGroups).forEach((group) => {
-    group.traverse((object) => {
-      if (object.isMesh) meshes.push(object);
-    });
-  });
+  Object.values(anatomicalGroups).forEach((group) => group.traverse((object) => {
+    if (object.isMesh) meshes.push(object);
+  }));
   return meshes;
+}
+
+function meshesForStructure(structureKey) {
+  return allMeshes().filter((mesh) => mesh.userData.structureKey === structureKey && mesh.visible);
 }
 
 function applySystemOpacity(system, opacity) {
@@ -180,7 +220,7 @@ function applySystemOpacity(system, opacity) {
     if (!object.isMesh || !object.material) return;
     object.material.transparent = opacity < 1;
     object.material.opacity = opacity;
-    object.material.depthWrite = opacity > 0.55;
+    object.material.depthWrite = opacity >= 0.6;
     object.material.needsUpdate = true;
   });
 }
@@ -193,15 +233,24 @@ function clearHighlight() {
   });
 }
 
+function highlightStructure(structureKey, color = 0x5577aa, intensity = 0.55) {
+  meshesForStructure(structureKey).forEach((mesh) => {
+    if (!mesh.material?.emissive) return;
+    mesh.material.emissive.setHex(color);
+    mesh.material.emissiveIntensity = intensity;
+  });
+}
+
 function renderInfo(structureKey) {
   const data = upperLimbStructures[structureKey];
   if (!data) return;
   document.querySelector('#selected-name').textContent = data.name;
   document.querySelector('#selected-description').textContent = data.description;
-
   const details = [];
   if (data.region) details.push(`<div><span>Region</span><b>${data.region}</b></div>`);
   if (data.roots) details.push(`<div><span>Roots</span><b>${data.roots.join(' · ')}</b></div>`);
+  if (data.origin) details.push(`<div><span>Origin</span><b>${data.origin.join('; ')}</b></div>`);
+  if (data.insertion) details.push(`<div><span>Insertion</span><b>${data.insertion.join('; ')}</b></div>`);
   if (data.innervation) details.push(`<div><span>Innervation</span><b>${data.innervation}</b></div>`);
   if (data.actions) details.push(`<div><span>Action</span><b>${data.actions.join(', ')}</b></div>`);
   document.querySelector('#details').innerHTML = details.join('');
@@ -209,38 +258,59 @@ function renderInfo(structureKey) {
 }
 
 function setSelected(mesh) {
-  const structureKey = mesh?.userData?.structureKey;
-  if (!structureKey) return;
+  const key = mesh?.userData?.structureKey;
+  if (!key) return;
   selectedMesh = mesh;
   clearHighlight();
-  if (mesh.material?.emissive) {
-    mesh.material.emissive.setHex(0x5577aa);
-    mesh.material.emissiveIntensity = 0.55;
-  }
-  renderInfo(structureKey);
+  highlightStructure(key);
+  renderInfo(key);
+}
+
+function syncSystemButton(system) {
+  const button = document.querySelector(`[data-system="${system}"]`);
+  button?.classList.toggle('active', anatomicalGroups[system].visible);
+}
+
+function showSystem(system, visible = true) {
+  anatomicalGroups[system].visible = visible;
+  syncSystemButton(system);
 }
 
 function restoreAll() {
-  Object.entries(anatomicalGroups).forEach(([name, group]) => {
-    const button = document.querySelector(`[data-system="${name}"]`);
-    group.visible = button?.classList.contains('active') ?? true;
+  Object.entries(anatomicalGroups).forEach(([system, group]) => {
     group.traverse((child) => {
       if (!child.isMesh) return;
-      const fallbackHiddenByReal = !child.userData.isRealAnatomy && fallbackRegistry.get(child.userData.structureKey)?.some((item) => item.visible === false && item !== child);
-      if (!fallbackHiddenByReal) child.visible = true;
+      const key = child.userData.structureKey;
+      child.visible = child.userData.isRealAnatomy || !replacedStructures.has(key);
     });
+    syncSystemButton(system);
   });
   clearHighlight();
-  setSelected(selectedMesh);
+  if (selectedMesh?.userData?.structureKey) highlightStructure(selectedMesh.userData.structureKey);
 }
 
+function setModeBadge(text = '') {
+  const badge = document.querySelector('#mode-badge');
+  badge.textContent = text;
+  badge.hidden = !text;
+}
+
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
 renderer.domElement.addEventListener('pointerdown', (event) => {
   const rect = renderer.domElement.getBoundingClientRect();
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(allMeshes().filter((mesh) => mesh.visible), false);
-  if (hits[0]) setSelected(hits[0].object);
+  const hits = raycaster.intersectObjects(allMeshes().filter((mesh) => mesh.visible && mesh.parent?.visible !== false), false);
+  const hit = hits[0]?.object;
+  if (!hit) return;
+
+  if (quizMode) {
+    answerQuiz(hit.userData.structureKey);
+    return;
+  }
+  setSelected(hit);
 });
 
 document.querySelectorAll('.system').forEach((button) => {
@@ -249,9 +319,8 @@ document.querySelectorAll('.system').forEach((button) => {
     activeSystem = system;
     document.querySelector('#opacity-slider').value = String(Math.round(systemOpacity[system] * 100));
     document.querySelector('#opacity-value').textContent = `${Math.round(systemOpacity[system] * 100)}%`;
-    const show = !anatomicalGroups[system].visible;
-    anatomicalGroups[system].visible = show;
-    button.classList.toggle('active', show);
+    document.querySelector('#opacity-system').textContent = `${button.textContent} selected`;
+    showSystem(system, !anatomicalGroups[system].visible);
   });
 });
 
@@ -263,33 +332,109 @@ document.querySelector('#opacity-slider').addEventListener('input', (event) => {
 });
 
 document.querySelector('#isolate-btn').addEventListener('click', () => {
-  if (!selectedMesh) return;
-  const key = selectedMesh.userData.structureKey;
+  const key = selectedMesh?.userData?.structureKey;
+  if (!key) return;
   allMeshes().forEach((mesh) => { mesh.visible = mesh.userData.structureKey === key; });
   Object.values(anatomicalGroups).forEach((group) => { group.visible = true; });
+  clearHighlight();
+  highlightStructure(key);
+  setModeBadge(`Isolated · ${upperLimbStructures[key]?.name ?? key}`);
 });
 
-document.querySelector('#restore-btn').addEventListener('click', restoreAll);
+document.querySelector('#restore-btn').addEventListener('click', () => {
+  restoreAll();
+  if (!plexusMode && !quizMode) setModeBadge('');
+});
+
+const branchContainer = document.querySelector('#plexus-branches');
+brachialPlexus.terminalBranches.forEach((branch) => {
+  const button = document.createElement('button');
+  button.className = 'branch-button';
+  button.innerHTML = `<b>${branch.name}</b><span>${branch.cord} · ${branch.roots.join('–')}</span>`;
+  button.addEventListener('click', () => {
+    showSystem('nerves', true);
+    clearHighlight();
+    highlightStructure(branch.structureKey, 0x8b6b00, 0.85);
+    const mesh = meshesForStructure(branch.structureKey)[0];
+    if (mesh) setSelected(mesh);
+  });
+  branchContainer.appendChild(button);
+});
 
 document.querySelector('#plexus-btn').addEventListener('click', () => {
   plexusMode = !plexusMode;
-  document.querySelector('#mode-badge').hidden = !plexusMode;
   document.querySelector('#plexus-btn').classList.toggle('active', plexusMode);
+  document.querySelector('#plexus-card').hidden = !plexusMode;
   if (plexusMode) {
-    anatomicalGroups.nerves.visible = true;
-    document.querySelector('[data-system="nerves"]').classList.add('active');
-    [medianNerve, musculocutaneousNerve, radialNerve].forEach((mesh) => {
-      mesh.material.emissive.setHex(0x6a5200);
-      mesh.material.emissiveIntensity = 0.7;
-    });
-    setSelected(medianNerve);
+    quizMode = false;
+    document.querySelector('#quiz-btn').classList.remove('active');
+    document.querySelector('#quiz-card').hidden = true;
+    showSystem('nerves', true);
+    clearHighlight();
+    ['medianNerve', 'musculocutaneousNerve', 'radialNerve'].forEach((key) => highlightStructure(key, 0x6a5200, 0.7));
+    setModeBadge('Brachial Plexus Mode');
   } else {
     clearHighlight();
-    setSelected(selectedMesh);
+    if (selectedMesh) highlightStructure(selectedMesh.userData.structureKey);
+    setModeBadge('');
   }
 });
 
-renderInfo('humerus');
+function currentQuiz() {
+  return quizQuestions[quizIndex % quizQuestions.length];
+}
+
+function renderQuiz() {
+  const question = currentQuiz();
+  document.querySelector('#quiz-prompt').textContent = question.prompt;
+  document.querySelector('#quiz-feedback').textContent = 'Click the correct structure in the 3D viewer.';
+  document.querySelector('#quiz-feedback').className = 'quiz-feedback';
+  document.querySelector('#quiz-score').textContent = `${quizCorrect} / ${quizAttempts}`;
+  document.querySelector('#next-question').disabled = true;
+  quizAnswered = false;
+  clearHighlight();
+}
+
+function answerQuiz(structureKey) {
+  if (quizAnswered) return;
+  quizAnswered = true;
+  quizAttempts += 1;
+  const question = currentQuiz();
+  const correct = structureKey === question.target;
+  if (correct) quizCorrect += 1;
+
+  clearHighlight();
+  highlightStructure(question.target, correct ? 0x2d7c52 : 0x7c5e20, 0.9);
+  const feedback = document.querySelector('#quiz-feedback');
+  feedback.textContent = `${correct ? 'Correct.' : `Not quite — the answer is ${question.answer}.`} ${question.explanation}`;
+  feedback.className = `quiz-feedback ${correct ? 'correct' : 'incorrect'}`;
+  document.querySelector('#quiz-score').textContent = `${quizCorrect} / ${quizAttempts}`;
+  document.querySelector('#next-question').disabled = false;
+}
+
+document.querySelector('#next-question').addEventListener('click', () => {
+  quizIndex = (quizIndex + 1) % quizQuestions.length;
+  renderQuiz();
+});
+
+document.querySelector('#quiz-btn').addEventListener('click', () => {
+  quizMode = !quizMode;
+  document.querySelector('#quiz-btn').classList.toggle('active', quizMode);
+  document.querySelector('#quiz-card').hidden = !quizMode;
+  if (quizMode) {
+    plexusMode = false;
+    document.querySelector('#plexus-btn').classList.remove('active');
+    document.querySelector('#plexus-card').hidden = true;
+    Object.keys(anatomicalGroups).forEach((system) => showSystem(system, true));
+    setModeBadge('Quiz Mode');
+    renderQuiz();
+  } else {
+    clearHighlight();
+    if (selectedMesh) highlightStructure(selectedMesh.userData.structureKey);
+    setModeBadge('');
+  }
+});
+
 setSelected(humerus);
 
 hydrateRealModels({
@@ -297,24 +442,32 @@ hydrateRealModels({
   groups: anatomicalGroups,
   fallbackRegistry,
   onSwap: (structureKey, item, meshes) => {
+    replacedStructures.add(structureKey);
     realAssetCount += 1;
-    meshes.forEach((mesh) => { mesh.userData.system = item.system; });
+    meshes.forEach((mesh) => {
+      mesh.userData.system = item.system;
+      mesh.userData.isRealAnatomy = true;
+    });
+    fallbackRegistry.get(structureKey)?.forEach((fallback) => { fallback.visible = false; });
     applySystemOpacity(item.system, systemOpacity[item.system]);
-    document.querySelector('#viewer-badge').textContent = `${realAssetCount} validated GLB structure${realAssetCount === 1 ? '' : 's'} loaded · ${item.sourceLabel ?? structureKey}`;
+    document.querySelector('#viewer-badge').textContent = `${realAssetCount} validated GLB structure${realAssetCount === 1 ? '' : 's'} loaded`;
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
 }).then(() => {
   if (realAssetCount === 0) {
-    document.querySelector('#viewer-badge').textContent = 'Educational prototype · validated GLBs load automatically when present';
+    document.querySelector('#viewer-badge').textContent = 'Educational prototype · real GLBs load automatically when available';
   }
+}).catch((error) => {
+  console.error('[Anatomica] Asset hydration failed', error);
+  document.querySelector('#viewer-badge').textContent = 'Educational prototype · asset fallback active';
 });
 
 function resize() {
   const parent = canvas.parentElement;
-  const width = parent.clientWidth;
-  const height = parent.clientHeight;
+  const width = Math.max(parent.clientWidth, 1);
+  const height = Math.max(parent.clientHeight, 1);
   renderer.setSize(width, height, false);
-  camera.aspect = width / Math.max(height, 1);
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
 }
 
