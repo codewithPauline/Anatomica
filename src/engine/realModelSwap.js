@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { loadAnatomyModel } from './modelLoader.js';
+import { ensureAnatomyLegend, styleAnatomyMesh } from './anatomyVisuals.js';
 
 function meshesIn(root) {
   const meshes = [];
@@ -25,15 +26,13 @@ function dominantAxis(size) {
   return new THREE.Vector3(0, 0, 1);
 }
 
-function prepareImportedMeshes(meshes, structureKey, targetGroup) {
+function prepareImportedMeshes(meshes, structureKey, system, targetGroup) {
   meshes.forEach((mesh) => {
     targetGroup.attach(mesh);
     mesh.userData.structureKey = structureKey;
+    mesh.userData.system = system;
     mesh.userData.isRealAnatomy = true;
-    mesh.material = mesh.material.clone();
-    if ('roughness' in mesh.material) mesh.material.roughness = Math.max(mesh.material.roughness ?? 0.55, 0.45);
-    mesh.userData.baseEmissive = mesh.material.emissive?.getHex?.() ?? 0x000000;
-    mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
+    styleAnatomyMesh(mesh, structureKey, system);
   });
 }
 
@@ -87,7 +86,7 @@ export async function swapInRealModel({
   model.updateMatrixWorld(true);
 
   const registrationMatrix = model.matrixWorld.clone();
-  prepareImportedMeshes(importedMeshes, structureKey, targetGroup);
+  prepareImportedMeshes(importedMeshes, structureKey, manifestItem.system, targetGroup);
 
   fallbackObjects.filter((object) => object?.isObject3D).forEach((object) => {
     object.userData.replacedByReal = true;
@@ -115,11 +114,13 @@ async function loadUsingSharedRegistration({
   const importedMeshes = meshesIn(model);
   if (!importedMeshes.length) return null;
 
-  prepareImportedMeshes(importedMeshes, structureKey, targetGroup);
+  prepareImportedMeshes(importedMeshes, structureKey, manifestItem.system, targetGroup);
   return importedMeshes;
 }
 
 export async function hydrateRealModels({ manifest, groups, fallbackRegistry, onSwap }) {
+  ensureAnatomyLegend();
+
   const registrations = new Map();
   const deferred = [];
 
