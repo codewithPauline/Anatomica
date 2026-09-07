@@ -16,7 +16,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ3368.obj'],
       sourceLabels: ['right humerus'],
       system: 'skeleton',
-      status: 'source-identified',
+      status: 'converted',
     },
     radius: {
       path: '/models/upper-limb/radius.glb',
@@ -25,7 +25,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ3349.obj'],
       sourceLabels: ['right radius'],
       system: 'skeleton',
-      status: 'source-identified',
+      status: 'converted',
     },
     ulna: {
       path: '/models/upper-limb/ulna.glb',
@@ -34,7 +34,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ3391.obj'],
       sourceLabels: ['right ulna'],
       system: 'skeleton',
-      status: 'source-identified',
+      status: 'converted',
     },
     clavicle: {
       path: '/models/upper-limb/clavicle.glb',
@@ -44,7 +44,7 @@ export const modelManifest = {
       sourceLabels: ['right clavicle'],
       system: 'skeleton',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     scapula: {
       path: '/models/upper-limb/scapula.glb',
@@ -54,7 +54,7 @@ export const modelManifest = {
       sourceLabels: ['right scapula'],
       system: 'skeleton',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     bicepsBrachii: {
       path: '/models/upper-limb/biceps-brachii.glb',
@@ -63,7 +63,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ1512.obj', 'FJ1478.obj'],
       sourceLabels: ['short head of right biceps brachii', 'long head of right biceps brachii'],
       system: 'muscles',
-      status: 'source-identified',
+      status: 'converted',
     },
     tricepsBrachii: {
       path: '/models/upper-limb/triceps-brachii.glb',
@@ -76,7 +76,7 @@ export const modelManifest = {
         'long head of right triceps brachii',
       ],
       system: 'muscles',
-      status: 'source-identified',
+      status: 'converted',
     },
     deltoid: {
       path: '/models/upper-limb/deltoid.glb',
@@ -90,7 +90,7 @@ export const modelManifest = {
       ],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     supraspinatus: {
       path: '/models/upper-limb/supraspinatus.glb',
@@ -100,7 +100,7 @@ export const modelManifest = {
       sourceLabels: ['right supraspinatus'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     infraspinatus: {
       path: '/models/upper-limb/infraspinatus.glb',
@@ -110,7 +110,7 @@ export const modelManifest = {
       sourceLabels: ['right infraspinatus muscle'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     teresMinor: {
       path: '/models/upper-limb/teres-minor.glb',
@@ -120,7 +120,7 @@ export const modelManifest = {
       sourceLabels: ['right teres minor'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     subscapularis: {
       path: '/models/upper-limb/subscapularis.glb',
@@ -130,7 +130,7 @@ export const modelManifest = {
       sourceLabels: ['right subscapularis'],
       system: 'muscles',
       registrationReference: 'humerus',
-      status: 'source-identified',
+      status: 'converted',
     },
     medianNerve: { path: '/models/upper-limb/median-nerve.glb', system: 'nerves', status: 'pending-source' },
     musculocutaneousNerve: { path: '/models/upper-limb/musculocutaneous-nerve.glb', system: 'nerves', status: 'pending-source' },
@@ -144,7 +144,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ2271.obj'],
       sourceLabels: ['right brachial artery'],
       system: 'vessels',
-      status: 'source-identified',
+      status: 'converted',
     },
     cephalicVein: {
       path: '/models/upper-limb/cephalic-vein.glb',
@@ -153,7 +153,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ2272.obj'],
       sourceLabels: ['right cephalic vein'],
       system: 'vessels',
-      status: 'source-identified',
+      status: 'converted',
     },
   },
 };
