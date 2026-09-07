@@ -43,6 +43,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ3362.obj'],
       sourceLabels: ['right clavicle'],
       system: 'skeleton',
+      registrationReference: 'humerus',
       status: 'source-identified',
     },
     scapula: {
@@ -52,6 +53,7 @@ export const modelManifest = {
       atomicMeshes: ['FJ3384.obj'],
       sourceLabels: ['right scapula'],
       system: 'skeleton',
+      registrationReference: 'humerus',
       status: 'source-identified',
     },
     bicepsBrachii: {
