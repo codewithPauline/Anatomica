@@ -1,7 +1,7 @@
-"""Blender helper: import one OBJ, normalize it, and export a compact GLB.
+"""Blender helper: import one or more OBJ files and export one compact GLB.
 
 Usage:
-  blender --background --python scripts/obj_to_glb.py -- input.obj output.glb
+  blender --background --python scripts/obj_to_glb.py -- input1.obj [input2.obj ...] output.glb
 """
 
 from __future__ import annotations
@@ -24,35 +24,37 @@ def clear_scene() -> None:
 
 
 def import_obj(path: Path) -> None:
-    # Blender 4.x uses wm.obj_import; older versions use import_scene.obj.
     if hasattr(bpy.ops.wm, "obj_import"):
         bpy.ops.wm.obj_import(filepath=str(path))
     else:
         bpy.ops.import_scene.obj(filepath=str(path))
 
 
-def normalize_selected() -> None:
-    objects = [obj for obj in bpy.context.selected_objects if obj.type == "MESH"]
+def collect_meshes():
+    return [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
+
+
+def normalize_scene() -> None:
+    objects = collect_meshes()
     if not objects:
         raise RuntimeError("No mesh objects were imported")
 
-    # Join parts so one anatomical structure behaves as one selectable object.
-    bpy.context.view_layer.objects.active = objects[0]
+    # Preserve head-level meshes during import, then join them into one selectable
+    # Anatomica structure for v0.1. Provenance remains in modelManifest.js/ASSETS.md.
+    bpy.ops.object.select_all(action="DESELECT")
     for obj in objects:
         obj.select_set(True)
+    bpy.context.view_layer.objects.active = objects[0]
     if len(objects) > 1:
         bpy.ops.object.join()
 
     obj = bpy.context.view_layer.objects.active
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
-    # Center the object's bounding box around the origin without altering shape.
     corners = [obj.matrix_world @ obj.bound_box[i] for i in range(8)]
     center = sum(corners, corners[0].copy() * 0) / 8
     obj.location -= center
 
-    # Normalize the largest dimension to 4 Blender units. Final anatomical
-    # registration/alignment remains an Anatomica manifest responsibility.
     max_dim = max(obj.dimensions)
     if max_dim > 0:
         scale = 4.0 / max_dim
@@ -60,6 +62,9 @@ def normalize_selected() -> None:
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
     obj.name = "AnatomicaStructure"
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
 
 
 def export_glb(path: Path) -> None:
@@ -74,14 +79,18 @@ def export_glb(path: Path) -> None:
 
 def main() -> None:
     args = argv_after_separator()
-    if len(args) != 2:
-        raise SystemExit("Expected input OBJ and output GLB paths after --")
-    input_path, output_path = map(Path, args)
+    if len(args) < 2:
+        raise SystemExit("Expected one or more input OBJ paths followed by an output GLB path after --")
+
+    input_paths = [Path(value) for value in args[:-1]]
+    output_path = Path(args[-1])
+
     clear_scene()
-    import_obj(input_path)
-    normalize_selected()
+    for input_path in input_paths:
+        import_obj(input_path)
+    normalize_scene()
     export_glb(output_path)
-    print(f"Exported {output_path}")
+    print(f"Exported {output_path} from {len(input_paths)} source mesh(es)")
 
 
 if __name__ == "__main__":
