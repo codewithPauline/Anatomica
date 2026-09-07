@@ -40,8 +40,24 @@ app.innerHTML = `
         <button id="isolate-btn" class="tool">Isolate</button>
         <button id="restore-btn" class="tool">Restore</button>
         <button id="rotator-btn" class="tool">Rotator cuff</button>
+        <button id="forearm-btn" class="tool">Forearm</button>
         <button id="plexus-btn" class="tool">Brachial plexus</button>
         <button id="quiz-btn" class="tool accent">Quiz mode</button>
+      </section>
+
+      <section id="forearm-card" class="learning-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Compartment explorer</span>
+            <strong>Forearm muscles</strong>
+          </div>
+          <span class="status-pill">10 muscles</span>
+        </div>
+        <p class="quiz-prompt">Compare the superficial flexor-pronator group with the extensor-supinator group.</p>
+        <div class="branch-list">
+          <button id="forearm-anterior" class="branch-button" type="button"><b>Anterior</b><span>Flexor · pronator</span></button>
+          <button id="forearm-posterior" class="branch-button" type="button"><b>Posterior</b><span>Extensor · supinator</span></button>
+        </div>
       </section>
 
       <section id="plexus-card" class="learning-card" hidden>
@@ -134,6 +150,8 @@ let activeSystem = 'skeleton';
 let selectedMesh = null;
 let plexusMode = false;
 let rotatorMode = false;
+let forearmMode = false;
+let forearmCompartment = 'anterior';
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -221,18 +239,15 @@ function meshesForStructure(structureKey) {
 function fitCameraToMeshes(meshes, padding = 1.22) {
   const visibleMeshes = meshes.filter((mesh) => mesh?.isMesh && mesh.visible && mesh.parent?.visible !== false);
   if (!visibleMeshes.length) return;
-
   const box = new THREE.Box3();
   visibleMeshes.forEach((mesh) => box.expandByObject(mesh));
   if (box.isEmpty()) return;
-
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   box.getSize(size);
   box.getCenter(center);
   const maxDim = Math.max(size.x, size.y, size.z);
   if (!Number.isFinite(maxDim) || maxDim <= 0) return;
-
   const fov = THREE.MathUtils.degToRad(camera.fov);
   const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 2.2);
   controls.target.copy(center);
@@ -329,6 +344,28 @@ function setModeBadge(text = '') {
   badge.hidden = !text;
 }
 
+function deactivateStudyModes(except = '') {
+  if (except !== 'rotator') {
+    rotatorMode = false;
+    document.querySelector('#rotator-btn').classList.remove('active');
+  }
+  if (except !== 'forearm') {
+    forearmMode = false;
+    document.querySelector('#forearm-btn').classList.remove('active');
+    document.querySelector('#forearm-card').hidden = true;
+  }
+  if (except !== 'plexus') {
+    plexusMode = false;
+    document.querySelector('#plexus-btn').classList.remove('active');
+    document.querySelector('#plexus-card').hidden = true;
+  }
+  if (except !== 'quiz') {
+    quizMode = false;
+    document.querySelector('#quiz-btn').classList.remove('active');
+    document.querySelector('#quiz-card').hidden = true;
+  }
+}
+
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -372,10 +409,10 @@ document.querySelector('#isolate-btn').addEventListener('click', () => {
 });
 
 document.querySelector('#restore-btn').addEventListener('click', () => {
-  rotatorMode = false;
-  document.querySelector('#rotator-btn').classList.remove('active');
+  deactivateStudyModes();
   restoreAll();
-  if (!plexusMode && !quizMode) setModeBadge('');
+  setModeBadge('');
+  fitCameraToAnatomy();
 });
 
 const rotatorKeys = ['supraspinatus', 'infraspinatus', 'teresMinor', 'subscapularis'];
@@ -383,28 +420,21 @@ const shoulderSkeletonKeys = ['humerus', 'scapula', 'clavicle'];
 const shoulderStudyKeys = [...shoulderSkeletonKeys, 'deltoid', ...rotatorKeys];
 
 document.querySelector('#rotator-btn').addEventListener('click', () => {
-  rotatorMode = !rotatorMode;
+  const nextState = !rotatorMode;
+  deactivateStudyModes('rotator');
+  rotatorMode = nextState;
   document.querySelector('#rotator-btn').classList.toggle('active', rotatorMode);
 
   if (rotatorMode) {
-    plexusMode = false;
-    quizMode = false;
-    document.querySelector('#plexus-btn').classList.remove('active');
-    document.querySelector('#quiz-btn').classList.remove('active');
-    document.querySelector('#plexus-card').hidden = true;
-    document.querySelector('#quiz-card').hidden = true;
-
     setSystemVisibility('skeleton', true, false);
     setSystemVisibility('muscles', true, false);
     setSystemVisibility('nerves', false, false);
     setSystemVisibility('vessels', false, false);
-
     allMeshes().forEach((mesh) => {
       const key = mesh.userData.structureKey;
       if (mesh.userData.system === 'skeleton') mesh.visible = shoulderSkeletonKeys.includes(key);
       if (mesh.userData.system === 'muscles') mesh.visible = shoulderStudyKeys.includes(key);
     });
-
     clearHighlight();
     rotatorKeys.forEach((key) => highlightStructure(key, 0x7f303f, 0.6));
     setModeBadge('Rotator Cuff · SITS');
@@ -415,6 +445,52 @@ document.querySelector('#rotator-btn').addEventListener('click', () => {
     fitCameraToAnatomy();
   }
 });
+
+const forearmSkeletonKeys = ['humerus', 'radius', 'ulna'];
+const anteriorForearmKeys = ['pronatorTeres', 'flexorCarpiRadialis', 'palmarisLongus', 'flexorCarpiUlnaris', 'brachioradialis'];
+const posteriorForearmKeys = ['extensorCarpiRadialisLongus', 'extensorCarpiRadialisBrevis', 'extensorDigitorum', 'extensorCarpiUlnaris', 'supinator'];
+const allForearmKeys = [...anteriorForearmKeys, ...posteriorForearmKeys];
+
+function renderForearmCompartment(compartment) {
+  forearmCompartment = compartment;
+  const activeKeys = compartment === 'anterior' ? anteriorForearmKeys : posteriorForearmKeys;
+  document.querySelector('#forearm-anterior').classList.toggle('active', compartment === 'anterior');
+  document.querySelector('#forearm-posterior').classList.toggle('active', compartment === 'posterior');
+
+  setSystemVisibility('skeleton', true, false);
+  setSystemVisibility('muscles', true, false);
+  setSystemVisibility('nerves', false, false);
+  setSystemVisibility('vessels', false, false);
+
+  allMeshes().forEach((mesh) => {
+    const key = mesh.userData.structureKey;
+    if (mesh.userData.system === 'skeleton') mesh.visible = forearmSkeletonKeys.includes(key);
+    else if (mesh.userData.system === 'muscles') mesh.visible = activeKeys.includes(key);
+    else mesh.visible = false;
+  });
+
+  clearHighlight();
+  activeKeys.forEach((key) => highlightStructure(key, compartment === 'anterior' ? 0x7d3d2e : 0x69364d, 0.55));
+  setModeBadge(`Forearm · ${compartment === 'anterior' ? 'Flexor–Pronator' : 'Extensor–Supinator'}`);
+  fitCameraToMeshes(allMeshes().filter((mesh) => [...forearmSkeletonKeys, ...activeKeys].includes(mesh.userData.structureKey)), 1.3);
+}
+
+document.querySelector('#forearm-btn').addEventListener('click', () => {
+  const nextState = !forearmMode;
+  deactivateStudyModes('forearm');
+  forearmMode = nextState;
+  document.querySelector('#forearm-btn').classList.toggle('active', forearmMode);
+  document.querySelector('#forearm-card').hidden = !forearmMode;
+  if (forearmMode) renderForearmCompartment(forearmCompartment);
+  else {
+    restoreAll();
+    setModeBadge('');
+    fitCameraToAnatomy();
+  }
+});
+
+document.querySelector('#forearm-anterior').addEventListener('click', () => renderForearmCompartment('anterior'));
+document.querySelector('#forearm-posterior').addEventListener('click', () => renderForearmCompartment('posterior'));
 
 const branchContainer = document.querySelector('#plexus-branches');
 brachialPlexus.terminalBranches.forEach((branch) => {
@@ -433,15 +509,12 @@ brachialPlexus.terminalBranches.forEach((branch) => {
 
 const plexusKeys = ['musculocutaneousNerve', 'medianNerve', 'ulnarNerve', 'axillaryNerve', 'radialNerve'];
 document.querySelector('#plexus-btn').addEventListener('click', () => {
-  plexusMode = !plexusMode;
+  const nextState = !plexusMode;
+  deactivateStudyModes('plexus');
+  plexusMode = nextState;
   document.querySelector('#plexus-btn').classList.toggle('active', plexusMode);
   document.querySelector('#plexus-card').hidden = !plexusMode;
   if (plexusMode) {
-    rotatorMode = false;
-    document.querySelector('#rotator-btn').classList.remove('active');
-    quizMode = false;
-    document.querySelector('#quiz-btn').classList.remove('active');
-    document.querySelector('#quiz-card').hidden = true;
     restoreAll();
     setSystemVisibility('nerves', true);
     clearHighlight();
@@ -491,15 +564,12 @@ document.querySelector('#next-question').addEventListener('click', () => {
 });
 
 document.querySelector('#quiz-btn').addEventListener('click', () => {
-  quizMode = !quizMode;
+  const nextState = !quizMode;
+  deactivateStudyModes('quiz');
+  quizMode = nextState;
   document.querySelector('#quiz-btn').classList.toggle('active', quizMode);
   document.querySelector('#quiz-card').hidden = !quizMode;
   if (quizMode) {
-    rotatorMode = false;
-    document.querySelector('#rotator-btn').classList.remove('active');
-    plexusMode = false;
-    document.querySelector('#plexus-btn').classList.remove('active');
-    document.querySelector('#plexus-card').hidden = true;
     restoreAll();
     Object.keys(anatomicalGroups).forEach((system) => setSystemVisibility(system, true));
     setModeBadge('Quiz Mode');
@@ -523,6 +593,10 @@ hydrateRealModels({
     meshes.forEach((mesh) => {
       mesh.userData.system = item.system;
       mesh.userData.isRealAnatomy = true;
+      if (forearmMode && allForearmKeys.includes(structureKey)) {
+        const activeKeys = forearmCompartment === 'anterior' ? anteriorForearmKeys : posteriorForearmKeys;
+        mesh.visible = activeKeys.includes(structureKey);
+      }
     });
     fallbackRegistry.get(structureKey)?.forEach((fallback) => { fallback.visible = false; });
     applySystemOpacity(item.system, systemOpacity[item.system]);
