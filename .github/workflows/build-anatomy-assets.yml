@@ -32,7 +32,7 @@ jobs:
           mkdir -p /tmp/bodyparts3d
           unzip -q /tmp/bodyparts3d.zip -d /tmp/bodyparts3d
 
-      - name: Convert selected upper-limb bones to GLB
+      - name: Convert upper-limb structures to GLB
         run: |
           mkdir -p public/models/upper-limb
           python - <<'PY'
@@ -41,23 +41,40 @@ jobs:
 
           root = Path('/tmp/bodyparts3d')
           output = Path('public/models/upper-limb')
-          mapping = {
-              'FJ3368.obj': 'humerus.glb',
-              'FJ3349.obj': 'radius.glb',
-              'FJ3391.obj': 'ulna.glb',
+
+          assets = {
+              'humerus.glb': ['FJ3368.obj'],
+              'radius.glb': ['FJ3349.obj'],
+              'ulna.glb': ['FJ3391.obj'],
+              'biceps-brachii.glb': ['FJ1512.obj', 'FJ1478.obj'],
+              'triceps-brachii.glb': ['FJ1480.obj', 'FJ1477.obj', 'FJ1479.obj'],
           }
 
-          for source_name, target_name in mapping.items():
-              matches = list(root.rglob(source_name))
+          def locate(name):
+              matches = list(root.rglob(name))
               if not matches:
-                  raise FileNotFoundError(f'Could not find atomic BodyParts3D mesh {source_name}')
-              source = matches[0]
-              loaded = trimesh.load(source, force='scene', process=False)
-              scene = trimesh.Scene(loaded) if isinstance(loaded, trimesh.Trimesh) else loaded
+                  raise FileNotFoundError(f'Could not find atomic BodyParts3D mesh {name}')
+              return matches[0]
+
+          for target_name, source_names in assets.items():
+              scene = trimesh.Scene()
+              for source_name in source_names:
+                  source = locate(source_name)
+                  loaded = trimesh.load(source, force='scene', process=False)
+                  if isinstance(loaded, trimesh.Trimesh):
+                      scene.add_geometry(loaded, node_name=source.stem, geom_name=source.stem)
+                  else:
+                      for geom_name, geometry in loaded.geometry.items():
+                          scene.add_geometry(
+                              geometry.copy(),
+                              node_name=f'{source.stem}_{geom_name}',
+                              geom_name=f'{source.stem}_{geom_name}',
+                          )
+
               data = scene.export(file_type='glb')
               target = output / target_name
               target.write_bytes(data)
-              print(f'{source_name} -> {target} ({target.stat().st_size:,} bytes)')
+              print(f"{', '.join(source_names)} -> {target} ({target.stat().st_size:,} bytes)")
           PY
 
       - name: Commit generated GLBs
@@ -68,7 +85,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No new asset changes to commit.'
           else
-            git commit -m 'assets: add BodyParts3D humerus radius and ulna GLBs'
+            git commit -m 'assets: add BodyParts3D upper-arm muscle GLBs'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
