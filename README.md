@@ -21,10 +21,10 @@ The first milestone focuses on the upper limb and brachial plexus.
 - Per-system transparency control
 - Click-to-select structures
 - Structure highlighting
-- Isolate / restore controls
+- Isolate / restore controls with preserved system visibility state
 - Anatomy + clinical information panel
-- Structured brachial plexus roots, trunks, divisions, cords, and terminal-branch data
-- Interactive brachial plexus branch selection
+- Structured brachial plexus roots, trunks, divisions, cords, and all five classic terminal branches
+- Interactive teaching paths for musculocutaneous, median, ulnar, axillary, and radial nerves
 - Quiz Mode with score tracking and explanatory feedback
 - Medical metadata separated from 3D geometry
 - Automatic GLB/glTF replacement of procedural teaching geometry when validated models are present
@@ -34,7 +34,6 @@ The first milestone focuses on the upper limb and brachial plexus.
 ### In progress
 
 - Replace procedural teaching geometry with validated BodyParts3D upper-limb meshes
-- Expand brachial plexus beyond the first three terminal nerves
 - Add upper-limb anatomical landmarks and spatial relationships
 - Add clinical lesion simulations
 - Publish the live GitHub Pages demo after Pages is enabled for the repository
@@ -42,7 +41,7 @@ The first milestone focuses on the upper limb and brachial plexus.
 ## Core learning modes
 
 - **Anatomy Mode** — explore structures and their relationships in 3D.
-- **Brachial Plexus Mode** — follow the C5–T1 organization from roots to terminal branches.
+- **Brachial Plexus Mode** — follow the C5–T1 organization from roots to the five terminal branches.
 - **Quiz Mode** — identify structures directly in the viewer and receive immediate teaching feedback.
 - **Cadaver Mode** — planned progressive layer removal from superficial to deep anatomy.
 - **Physiology Mode** — planned dynamic visualization of structure-function relationships.
@@ -102,14 +101,14 @@ Cords
 Lateral  Posterior  Medial
       ↓
 Terminal branches
-Musculocutaneous · Median · Radial · more to come
+Musculocutaneous · Median · Ulnar · Axillary · Radial
 ```
 
-The first interactive terminal branches are linked directly to their 3D teaching pathways and structure metadata.
+Each terminal branch is linked to teaching metadata and a simplified 3D pathway. Validated production nerve assets will replace those pathways when suitable sources are available.
 
 ## Quiz Mode
 
-Quiz Mode currently asks learners to identify upper-limb bones, muscles, and nerves directly in the 3D viewer. It tracks score, highlights the correct structure, and explains the anatomical concept after each attempt.
+Quiz Mode currently asks learners to identify upper-limb bones, muscles, and nerves directly in the 3D viewer. It includes questions on median, radial, ulnar, and axillary nerve relationships, tracks score, highlights the correct structure, and explains the anatomical concept after each attempt.
 
 ## Technology
 
@@ -152,14 +151,14 @@ Anatomica/
 - [x] Per-system transparency
 - [x] Structure selection + clinical information panel
 - [x] Isolate / restore interaction
-- [x] Structured Brachial Plexus Explorer foundation
+- [x] Five-terminal-branch Brachial Plexus Explorer foundation
 - [x] Quiz Mode
 - [x] Production GLB loader architecture
 - [x] Automatic real-model replacement
 - [x] 3D asset provenance + license manifest
 - [x] Independent production-build CI
 - [ ] Validated upper-limb GLB base model
-- [ ] Complete Brachial Plexus terminal branches
+- [ ] Detailed brachial plexus roots/trunks/divisions/cord geometry
 - [ ] Clinical lesion simulation
 - [ ] Lower limb
 - [ ] Thorax + cardiovascular physiology
@@ -186,7 +185,7 @@ Biologist, educator, and computational researcher.
 
 🚧 **Early development — v0.1**
 
-Current development target: **validated real upper-limb anatomy + expanded brachial plexus + clinical interactions**.
+Current development target: **validated real upper-limb anatomy + detailed brachial plexus geometry + clinical interactions**.
 
 ---
 
