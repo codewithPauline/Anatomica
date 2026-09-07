@@ -24,20 +24,22 @@ jobs:
       - name: Install converters
         run: pip install trimesh numpy
 
-      - name: Download official BodyParts3D mesh archive
+      - name: Download official BodyParts3D source data
         run: |
           set -euo pipefail
-          URL='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip'
+          ARCHIVE_URL='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip'
+          ELEMENT_URL='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_element_parts.txt'
+          PARTS_URL='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_parts_list_e.txt'
           OUT='/tmp/bodyparts3d.zip'
 
           for attempt in 1 2 3 4 5 6; do
-            echo "Download attempt ${attempt}/6"
+            echo "Archive download attempt ${attempt}/6"
             if [ -f "$OUT" ]; then
               curl -L --fail --retry 5 --retry-all-errors --retry-delay 3 \
-                --connect-timeout 30 --max-time 1800 -C - "$URL" -o "$OUT" && break
+                --connect-timeout 30 --max-time 1800 -C - "$ARCHIVE_URL" -o "$OUT" && break
             else
               curl -L --fail --retry 5 --retry-all-errors --retry-delay 3 \
-                --connect-timeout 30 --max-time 1800 "$URL" -o "$OUT" && break
+                --connect-timeout 30 --max-time 1800 "$ARCHIVE_URL" -o "$OUT" && break
             fi
             if [ "$attempt" -eq 6 ]; then
               echo 'BodyParts3D archive download failed after all retries.' >&2
@@ -45,6 +47,9 @@ jobs:
             fi
             sleep 5
           done
+
+          curl -L --fail --retry 5 --retry-all-errors "$ELEMENT_URL" -o /tmp/isa_element_parts.txt
+          curl -L --fail --retry 5 --retry-all-errors "$PARTS_URL" -o /tmp/isa_parts_list_e.txt
 
           unzip -tq "$OUT" >/dev/null
           mkdir -p /tmp/bodyparts3d
@@ -54,12 +59,15 @@ jobs:
         run: |
           mkdir -p public/models/upper-limb
           python - <<'PY'
+          from collections import defaultdict
           from pathlib import Path
+          import csv
           import trimesh
 
           root = Path('/tmp/bodyparts3d')
           output = Path('public/models/upper-limb')
 
+          # Existing assets retain their already-verified atomic IDs.
           assets = {
               'humerus.glb': ['FJ3368.obj'],
               'radius.glb': ['FJ3349.obj'],
@@ -89,6 +97,120 @@ jobs:
               'brachial-artery.glb': ['FJ2271.obj'],
               'cephalic-vein.glb': ['FJ2272.obj'],
           }
+
+          # New assets are resolved from the official FMA→ELEMENT definition at build time.
+          # This avoids hard-coding guessed FJ IDs and keeps provenance reproducible.
+          fma_assets = {
+              # Carpals
+              'scaphoid.glb': ['FMA24435'],
+              'lunate.glb': ['FMA24437'],
+              'triquetral.glb': ['FMA24439'],
+              'pisiform.glb': ['FMA24441'],
+              'trapezium.glb': ['FMA24443'],
+              'trapezoid.glb': ['FMA23725'],
+              'capitate.glb': ['FMA24446'],
+              'hamate.glb': ['FMA24448'],
+              # Metacarpals
+              'metacarpal-1.glb': ['FMA24464'],
+              'metacarpal-2.glb': ['FMA24466'],
+              'metacarpal-3.glb': ['FMA24468'],
+              'metacarpal-4.glb': ['FMA24470'],
+              'metacarpal-5.glb': ['FMA24472'],
+              # Phalanges
+              'proximal-phalanx-thumb.glb': ['FMA24450'],
+              'proximal-phalanx-index.glb': ['FMA24451'],
+              'proximal-phalanx-middle.glb': ['FMA24452'],
+              'proximal-phalanx-ring.glb': ['FMA24453'],
+              'proximal-phalanx-little.glb': ['FMA24454'],
+              'middle-phalanx-index.glb': ['FMA24455'],
+              'middle-phalanx-middle.glb': ['FMA24456'],
+              'middle-phalanx-ring.glb': ['FMA24457'],
+              'middle-phalanx-little.glb': ['FMA24458'],
+              'distal-phalanx-thumb.glb': ['FMA24459'],
+              'distal-phalanx-index.glb': ['FMA24460'],
+              'distal-phalanx-middle.glb': ['FMA24461'],
+              'distal-phalanx-ring.glb': ['FMA24462'],
+              'distal-phalanx-little.glb': ['FMA24463'],
+              # Deep forearm / thumb tendons
+              'flexor-digitorum-superficialis.glb': ['FMA38470'],
+              'flexor-digitorum-profundus.glb': ['FMA38479'],
+              'flexor-pollicis-longus.glb': ['FMA38482'],
+              'pronator-quadratus.glb': ['FMA38454'],
+              'abductor-pollicis-longus.glb': ['FMA38516'],
+              'extensor-pollicis-brevis.glb': ['FMA38519'],
+              'extensor-pollicis-longus.glb': ['FMA38522'],
+              'extensor-indicis.glb': ['FMA38525'],
+              'extensor-digiti-minimi.glb': ['FMA38504'],
+              # Intrinsic hand muscles
+              'abductor-pollicis-brevis.glb': ['FMA37386'],
+              'flexor-pollicis-brevis.glb': ['FMA37388'],
+              'opponens-pollicis.glb': ['FMA37390'],
+              'adductor-pollicis.glb': ['FMA46121', 'FMA46123'],
+              'abductor-digiti-minimi.glb': ['FMA37396'],
+              'flexor-digiti-minimi-brevis.glb': ['FMA37398'],
+              'opponens-digiti-minimi.glb': ['FMA37400'],
+              'lumbricals.glb': ['FMA42398'],
+              'palmar-interossei.glb': ['FMA42402'],
+              'dorsal-interossei.glb': ['FMA42404'],
+              # Wrist roof / vascular landmarks
+              'flexor-retinaculum.glb': ['FMA40120'],
+              'radial-artery.glb': ['FMA22733'],
+              'ulnar-artery.glb': ['FMA22797'],
+              'superficial-palmar-arch.glb': ['FMA22835'],
+              'deep-palmar-arch.glb': ['FMA22839'],
+          }
+
+          # FMA → BodyParts3D representation ID.
+          fma_to_rep = {}
+          with open('/tmp/isa_parts_list_e.txt', encoding='utf-8') as handle:
+              reader = csv.reader(handle, delimiter='\t')
+              next(reader, None)
+              for row in reader:
+                  if len(row) >= 2:
+                      fma_to_rep[row[0].strip()] = row[1].strip()
+
+          # The official element-definition file has concept id, name, ELEMENT file id.
+          # Index it by both FMA and BP representation IDs so the build remains robust
+          # across archive formatting conventions.
+          element_index = defaultdict(list)
+          with open('/tmp/isa_element_parts.txt', encoding='utf-8') as handle:
+              reader = csv.reader(handle, delimiter='\t')
+              next(reader, None)
+              for row in reader:
+                  if len(row) < 3:
+                      continue
+                  concept_id = row[0].strip()
+                  element_id = row[2].strip()
+                  if concept_id and element_id:
+                      element_index[concept_id].append(element_id)
+
+          def normalize_element(element_id):
+              name = element_id if element_id.lower().endswith('.obj') else f'{element_id}.obj'
+              return name
+
+          def resolve_fmas(fmas):
+              resolved = []
+              for fma in fmas:
+                  candidates = [fma]
+                  rep = fma_to_rep.get(fma)
+                  if rep:
+                      candidates.append(rep)
+                  matches = []
+                  for candidate in candidates:
+                      matches.extend(element_index.get(candidate, []))
+                  if not matches:
+                      raise KeyError(f'No BodyParts3D ELEMENT mapping found for {fma} (representation {rep})')
+                  resolved.extend(normalize_element(item) for item in matches)
+              return list(dict.fromkeys(resolved))
+
+          # Guard the resolver against a previously verified reference mapping.
+          reference = resolve_fmas(['FMA23130'])
+          if 'FJ3368.obj' not in reference:
+              raise RuntimeError(f'Unexpected BodyParts3D mapping for right humerus: {reference}')
+
+          for target_name, fmas in fma_assets.items():
+              assets[target_name] = resolve_fmas(fmas)
+              print(f'{target_name}: {fmas} -> {assets[target_name]}')
 
           def locate(name):
               matches = list(root.rglob(name))
@@ -125,7 +247,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No new asset changes to commit.'
           else
-            git commit -m 'assets: add forearm flexor and extensor GLBs'
+            git commit -m 'assets: add complete wrist and hand anatomy GLBs'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
