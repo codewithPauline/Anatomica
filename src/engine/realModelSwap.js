@@ -58,9 +58,6 @@ export async function swapInRealModel({
   model.position.add(fallback.center.clone().sub(afterScale.center));
   model.updateMatrixWorld(true);
 
-  // Flatten meshes into the anatomical system group while preserving their
-  // world transforms. This makes existing raycasting/isolate logic work for
-  // imported GLBs without requiring special-case traversal elsewhere.
   importedMeshes.forEach((mesh) => {
     targetGroup.attach(mesh);
     mesh.userData.structureKey = structureKey;
@@ -71,7 +68,11 @@ export async function swapInRealModel({
     mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
   });
 
-  fallbackObjects.forEach((object) => { object.visible = false; });
+  fallbackObjects.forEach((object) => {
+    object.userData.replacedByReal = true;
+    object.visible = false;
+  });
+
   return importedMeshes;
 }
 
