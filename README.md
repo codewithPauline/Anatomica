@@ -18,53 +18,71 @@ Students will be able to rotate the body, isolate structures, toggle anatomical 
 - **Clinical Mode** — visualize lesions, injuries, referred deficits, and clinically important anatomical relationships.
 - **Quiz Mode** — identify highlighted structures, pathways, innervation, actions, and clinical correlations.
 
-## Anatomical systems
-
-Planned system layers include:
-
-- Skeletal
-- Muscular
-- Nervous
-- Cardiovascular
-- Respiratory
-- Gastrointestinal
-- Endocrine
-- Urinary
-- Reproductive
-- Lymphatic
-- Integumentary
-- Special senses
-
 ## v0.1 — Upper Limb Explorer
 
 The first milestone focuses on the upper limb and brachial plexus.
 
-### Initial capabilities
+### Working now
 
 - 3D orbit, zoom, and pan
-- Anatomical system toggles
-- Structure selection and highlighting
-- Hide / isolate / restore controls
-- Transparency controls
-- Structure information panel
-- Upper-limb bones and major muscles
-- Major arteries and nerves
-- Interactive brachial plexus pathway explorer
-- Early quiz mode
+- Skeletal, muscular, nervous, and vascular system toggles
+- Click-to-select structures
+- Structure highlighting
+- Isolate / restore controls
+- Medical metadata separated from 3D geometry
+- Anatomy and clinical information panel
+- Median, radial, and musculocutaneous nerve teaching pathways
+- Early Brachial Plexus Mode
+- Resilient GLB/glTF production-model loader
+- Licensed anatomical asset manifest and provenance workflow
 
-## Planned learning interactions
+### Next
 
-### Structure explorer
-Select a structure and view:
+- Replace procedural teaching geometry with validated BodyParts3D upper-limb meshes
+- Transparency / cadaver-layer controls
+- Full brachial plexus roots → trunks → divisions → cords → branches
+- Upper-limb landmarks and relationships
+- Quiz mode
+
+## Structure explorer
+
+Select a structure and view information such as:
 
 - Name
 - Region
 - Origin / insertion
 - Innervation
+- Nerve roots
 - Blood supply
 - Action / function
 - Key anatomical relationships
 - Clinical relevance
+
+## Asset architecture
+
+Anatomica intentionally separates three layers:
+
+```text
+3D geometry          → public/models/
+Model provenance     → src/data/modelManifest.js
+Medical knowledge    → src/data/upperLimb.js
+```
+
+The application can therefore replace or improve a mesh without rewriting its educational metadata.
+
+Production model loading is handled by `src/engine/modelLoader.js`. Until a validated model is marked ready, Anatomica retains a simplified procedural teaching model so development and learning interactions remain usable.
+
+See [`ASSETS.md`](ASSETS.md) for the model licensing and provenance policy.
+
+## Anatomical data source
+
+The primary planned production anatomy source for v0.1 is **BodyParts3D** from The Database Center for Life Science. The current official archive licenses the database under **CC BY 4.0** with attribution.
+
+Required attribution for derived BodyParts3D material:
+
+> BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International
+
+## Planned learning interactions
 
 ### Nerve tracing
 Trace a nerve from spinal roots to terminal branches and target structures. Future lesion simulation will compare deficits at different injury levels.
@@ -89,27 +107,27 @@ Future modules will visualize processes such as:
 
 ## Technology
 
-The project is being built as a modern browser-based application using:
-
-- **Three.js** for interactive 3D rendering
-- **Vite** for development and bundling
-- **JavaScript / WebGL** for client-side interaction
-- **glTF / GLB** for anatomical 3D assets
-- **JSON** for structured anatomy and physiology metadata
+- **Three.js** — interactive 3D rendering
+- **Vite** — development and bundling
+- **JavaScript / WebGL** — client-side interaction
+- **glTF / GLB** — anatomical 3D assets
+- **Structured JavaScript data** — anatomy and physiology metadata
 
 ## Project structure
 
 ```text
 Anatomica/
 ├── public/
-│   └── models/              # Anatomical 3D assets
+│   └── models/                 # Validated anatomical GLB assets
 ├── src/
-│   ├── data/                # Anatomy / physiology metadata
-│   ├── engine/              # 3D scene and interaction logic
-│   ├── modules/             # Regional and system learning modules
-│   ├── ui/                  # Interface components
+│   ├── data/
+│   │   ├── upperLimb.js        # Medical knowledge
+│   │   └── modelManifest.js    # Model paths + provenance
+│   ├── engine/
+│   │   └── modelLoader.js      # Production GLB loader
 │   ├── main.js
 │   └── style.css
+├── ASSETS.md
 ├── index.html
 ├── package.json
 └── README.md
@@ -119,10 +137,14 @@ Anatomica/
 
 - [x] Repository foundation
 - [x] Three.js viewer scaffold
-- [ ] Upper-limb base model
-- [ ] Skeletal / muscular / nervous system toggles
-- [ ] Structure selection + information panel
-- [ ] Brachial Plexus Explorer
+- [x] Skeletal / muscular / nervous / vascular system toggles
+- [x] Structure selection + clinical information panel
+- [x] Isolate / restore interaction
+- [x] Initial Brachial Plexus Mode
+- [x] Production GLB loader architecture
+- [x] 3D asset provenance + license manifest
+- [ ] Validated upper-limb GLB base model
+- [ ] Full Brachial Plexus Explorer
 - [ ] Quiz mode
 - [ ] Lower limb
 - [ ] Thorax + cardiovascular physiology
@@ -150,7 +172,7 @@ Biologist, educator, and computational researcher.
 
 🚧 **Early development — v0.1**
 
-The first public development target is the **Upper Limb Explorer + Brachial Plexus module**.
+Current development target: **validated real upper-limb anatomy + complete Brachial Plexus Explorer**.
 
 ---
 
