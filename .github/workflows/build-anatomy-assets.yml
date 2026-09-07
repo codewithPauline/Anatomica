@@ -26,11 +26,32 @@ jobs:
 
       - name: Download official BodyParts3D mesh archive
         run: |
-          curl -L --fail --retry 3 \
-            'https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip' \
-            -o /tmp/bodyparts3d.zip
+          set -euo pipefail
+          URL='https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip'
+          OUT='/tmp/bodyparts3d.zip'
+
+          # The BodyParts3D archive is large and its server can occasionally
+          # close a connection early. Retry with resume so a transient network
+          # interruption does not restart the full 136 MB transfer.
+          for attempt in 1 2 3 4 5 6; do
+            echo "Download attempt ${attempt}/6"
+            if [ -f "$OUT" ]; then
+              curl -L --fail --retry 5 --retry-all-errors --retry-delay 3 \
+                --connect-timeout 30 --max-time 1800 -C - "$URL" -o "$OUT" && break
+            else
+              curl -L --fail --retry 5 --retry-all-errors --retry-delay 3 \
+                --connect-timeout 30 --max-time 1800 "$URL" -o "$OUT" && break
+            fi
+            if [ "$attempt" -eq 6 ]; then
+              echo 'BodyParts3D archive download failed after all retries.' >&2
+              exit 1
+            fi
+            sleep 5
+          done
+
+          unzip -tq "$OUT" >/dev/null
           mkdir -p /tmp/bodyparts3d
-          unzip -q /tmp/bodyparts3d.zip -d /tmp/bodyparts3d
+          unzip -q "$OUT" -d /tmp/bodyparts3d
 
       - name: Convert upper-limb structures to GLB
         run: |
