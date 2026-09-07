@@ -10,14 +10,6 @@ Anatomica is designed to let learners move through the body the way they think c
 
 Students will be able to rotate the body, isolate structures, toggle anatomical systems, trace nerves and vessels, reveal deeper layers, animate physiological processes, and test themselves directly on the model.
 
-## Core learning modes
-
-- **Anatomy Mode** — explore bones, muscles, organs, nerves, vessels, and body regions in 3D.
-- **Cadaver Mode** — progressively reveal deeper anatomical layers from skin to bone.
-- **Physiology Mode** — connect structures with dynamic function such as circulation, ventilation, muscle contraction, and neural signaling.
-- **Clinical Mode** — visualize lesions, injuries, referred deficits, and clinically important anatomical relationships.
-- **Quiz Mode** — identify highlighted structures, pathways, innervation, actions, and clinical correlations.
-
 ## v0.1 — Upper Limb Explorer
 
 The first milestone focuses on the upper limb and brachial plexus.
@@ -26,23 +18,35 @@ The first milestone focuses on the upper limb and brachial plexus.
 
 - 3D orbit, zoom, and pan
 - Skeletal, muscular, nervous, and vascular system toggles
+- Per-system transparency control
 - Click-to-select structures
 - Structure highlighting
 - Isolate / restore controls
+- Anatomy + clinical information panel
+- Structured brachial plexus roots, trunks, divisions, cords, and terminal-branch data
+- Interactive brachial plexus branch selection
+- Quiz Mode with score tracking and explanatory feedback
 - Medical metadata separated from 3D geometry
-- Anatomy and clinical information panel
-- Median, radial, and musculocutaneous nerve teaching pathways
-- Early Brachial Plexus Mode
-- Resilient GLB/glTF production-model loader
+- Automatic GLB/glTF replacement of procedural teaching geometry when validated models are present
 - Licensed anatomical asset manifest and provenance workflow
+- Independent CI production-build verification
 
-### Next
+### In progress
 
 - Replace procedural teaching geometry with validated BodyParts3D upper-limb meshes
-- Transparency / cadaver-layer controls
-- Full brachial plexus roots → trunks → divisions → cords → branches
-- Upper-limb landmarks and relationships
-- Quiz mode
+- Expand brachial plexus beyond the first three terminal nerves
+- Add upper-limb anatomical landmarks and spatial relationships
+- Add clinical lesion simulations
+- Publish the live GitHub Pages demo after Pages is enabled for the repository
+
+## Core learning modes
+
+- **Anatomy Mode** — explore structures and their relationships in 3D.
+- **Brachial Plexus Mode** — follow the C5–T1 organization from roots to terminal branches.
+- **Quiz Mode** — identify structures directly in the viewer and receive immediate teaching feedback.
+- **Cadaver Mode** — planned progressive layer removal from superficial to deep anatomy.
+- **Physiology Mode** — planned dynamic visualization of structure-function relationships.
+- **Clinical Mode** — planned lesion and injury simulations tied to anatomical deficits.
 
 ## Structure explorer
 
@@ -53,9 +57,7 @@ Select a structure and view information such as:
 - Origin / insertion
 - Innervation
 - Nerve roots
-- Blood supply
 - Action / function
-- Key anatomical relationships
 - Clinical relevance
 
 ## Asset architecture
@@ -70,7 +72,7 @@ Medical knowledge    → src/data/upperLimb.js
 
 The application can therefore replace or improve a mesh without rewriting its educational metadata.
 
-Production model loading is handled by `src/engine/modelLoader.js`. Until a validated model is marked ready, Anatomica retains a simplified procedural teaching model so development and learning interactions remain usable.
+Production model loading is handled by `src/engine/modelLoader.js` and `src/engine/realModelSwap.js`. Until a validated model is available, Anatomica retains a simplified procedural teaching model so development and learning interactions remain usable.
 
 See [`ASSETS.md`](ASSETS.md) for the model licensing and provenance policy.
 
@@ -82,51 +84,60 @@ Required attribution for derived BodyParts3D material:
 
 > BodyParts3D, © The Database Center for Life Science licensed under CC Attribution 4.0 International
 
-## Planned learning interactions
+## Brachial Plexus Explorer
 
-### Nerve tracing
-Trace a nerve from spinal roots to terminal branches and target structures. Future lesion simulation will compare deficits at different injury levels.
+The current data layer models the classic organization:
 
-### Muscle motion
-Animate contraction and joint movement to connect origin, insertion, and action.
+```text
+Roots
+C5  C6  C7  C8  T1
+      ↓
+Trunks
+Upper  Middle  Lower
+      ↓
+Divisions
+Anterior / Posterior
+      ↓
+Cords
+Lateral  Posterior  Medial
+      ↓
+Terminal branches
+Musculocutaneous · Median · Radial · more to come
+```
 
-### Surface-to-deep anatomy
-Reveal body layers progressively:
+The first interactive terminal branches are linked directly to their 3D teaching pathways and structure metadata.
 
-`skin → fascia → muscle → vessels → nerves → bone`
+## Quiz Mode
 
-### Physiology overlays
-Future modules will visualize processes such as:
-
-- Cardiac conduction and circulation
-- Ventilation and gas flow
-- Muscle contraction
-- Nerve impulse propagation
-- Renal filtration
-- Gastrointestinal movement
+Quiz Mode currently asks learners to identify upper-limb bones, muscles, and nerves directly in the 3D viewer. It tracks score, highlights the correct structure, and explains the anatomical concept after each attempt.
 
 ## Technology
 
 - **Three.js** — interactive 3D rendering
-- **Vite** — development and bundling
-- **JavaScript / WebGL** — client-side interaction
+- **Vite** — development and production bundling
+- **JavaScript / WebGL** — browser interaction
 - **glTF / GLB** — anatomical 3D assets
-- **Structured JavaScript data** — anatomy and physiology metadata
+- **Structured JavaScript data** — anatomy, brachial plexus, and quiz metadata
+- **GitHub Actions** — continuous build verification and planned GitHub Pages deployment
 
 ## Project structure
 
 ```text
 Anatomica/
 ├── public/
-│   └── models/                 # Validated anatomical GLB assets
+│   └── models/                    # Validated anatomical GLB assets
 ├── src/
 │   ├── data/
-│   │   ├── upperLimb.js        # Medical knowledge
-│   │   └── modelManifest.js    # Model paths + provenance
+│   │   ├── upperLimb.js           # Medical knowledge
+│   │   ├── brachialPlexus.js      # Plexus pathway data
+│   │   ├── quizQuestions.js       # Learning question bank
+│   │   └── modelManifest.js       # Model paths + provenance
 │   ├── engine/
-│   │   └── modelLoader.js      # Production GLB loader
+│   │   ├── modelLoader.js         # Production GLB loader
+│   │   └── realModelSwap.js       # Real-model / fallback replacement
 │   ├── main.js
 │   └── style.css
+├── scripts/                       # BodyParts3D extraction + conversion
 ├── ASSETS.md
 ├── index.html
 ├── package.json
@@ -138,21 +149,24 @@ Anatomica/
 - [x] Repository foundation
 - [x] Three.js viewer scaffold
 - [x] Skeletal / muscular / nervous / vascular system toggles
+- [x] Per-system transparency
 - [x] Structure selection + clinical information panel
 - [x] Isolate / restore interaction
-- [x] Initial Brachial Plexus Mode
+- [x] Structured Brachial Plexus Explorer foundation
+- [x] Quiz Mode
 - [x] Production GLB loader architecture
+- [x] Automatic real-model replacement
 - [x] 3D asset provenance + license manifest
+- [x] Independent production-build CI
 - [ ] Validated upper-limb GLB base model
-- [ ] Full Brachial Plexus Explorer
-- [ ] Quiz mode
+- [ ] Complete Brachial Plexus terminal branches
+- [ ] Clinical lesion simulation
 - [ ] Lower limb
 - [ ] Thorax + cardiovascular physiology
 - [ ] Abdomen and pelvis
 - [ ] Head and neck
 - [ ] Neuroanatomy
 - [ ] Cross-sectional anatomy and medical imaging
-- [ ] Clinical lesion simulations
 - [ ] Complete interactive human model
 
 ## Educational philosophy
@@ -172,7 +186,7 @@ Biologist, educator, and computational researcher.
 
 🚧 **Early development — v0.1**
 
-Current development target: **validated real upper-limb anatomy + complete Brachial Plexus Explorer**.
+Current development target: **validated real upper-limb anatomy + expanded brachial plexus + clinical interactions**.
 
 ---
 
