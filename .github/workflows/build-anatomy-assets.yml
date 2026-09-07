@@ -46,8 +46,12 @@ jobs:
               'humerus.glb': ['FJ3368.obj'],
               'radius.glb': ['FJ3349.obj'],
               'ulna.glb': ['FJ3391.obj'],
+              'clavicle.glb': ['FJ3362.obj'],
+              'scapula.glb': ['FJ3384.obj'],
               'biceps-brachii.glb': ['FJ1512.obj', 'FJ1478.obj'],
               'triceps-brachii.glb': ['FJ1480.obj', 'FJ1477.obj', 'FJ1479.obj'],
+              'brachial-artery.glb': ['FJ2271.obj'],
+              'cephalic-vein.glb': ['FJ2272.obj'],
           }
 
           def locate(name):
@@ -85,7 +89,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No new asset changes to commit.'
           else
-            git commit -m 'assets: add BodyParts3D upper-arm muscle GLBs'
+            git commit -m 'assets: add shoulder-girdle and vessel GLBs'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
