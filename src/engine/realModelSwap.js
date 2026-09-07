@@ -25,20 +25,27 @@ function dominantAxis(size) {
   return new THREE.Vector3(0, 0, 1);
 }
 
+function prepareImportedMeshes(meshes, structureKey, targetGroup) {
+  meshes.forEach((mesh) => {
+    targetGroup.attach(mesh);
+    mesh.userData.structureKey = structureKey;
+    mesh.userData.isRealAnatomy = true;
+    mesh.material = mesh.material.clone();
+    if ('roughness' in mesh.material) mesh.material.roughness = Math.max(mesh.material.roughness ?? 0.55, 0.45);
+    mesh.userData.baseEmissive = mesh.material.emissive?.getHex?.() ?? 0x000000;
+    mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
+  });
+}
+
 /**
- * Try to replace a procedural structure with a GLB from the manifest.
- * Missing GLBs are intentionally non-fatal: the teaching fallback remains.
+ * Replace one procedural teaching structure with a real GLB.
  *
- * Registration is deliberately lightweight for the v0.1 viewer:
- * 1. align the imported structure's dominant longitudinal axis to the
- *    fallback structure's dominant axis,
- * 2. scale it to the fallback envelope,
- * 3. center it on the fallback structure.
- *
- * BodyParts3D upper-limb bones use a shared anatomical coordinate system in
- * which their long axis is predominantly Z, while the current teaching arm is
- * predominantly Y. Performing the axis alignment before scaling prevents real
- * bones from appearing sideways when they replace the procedural geometry.
+ * The resulting registrationMatrix maps the original BodyParts3D coordinate
+ * system into the current Anatomica teaching scene. That matrix can then be
+ * reused by anatomically related BodyParts3D structures (for example scapula
+ * and clavicle) that have no procedural fallback of their own. This preserves
+ * their shared source-space relationships instead of independently centering
+ * every imported structure.
  */
 export async function swapInRealModel({
   structureKey,
@@ -79,45 +86,82 @@ export async function swapInRealModel({
   model.position.add(fallback.center.clone().sub(afterScale.center));
   model.updateMatrixWorld(true);
 
-  importedMeshes.forEach((mesh) => {
-    targetGroup.attach(mesh);
-    mesh.userData.structureKey = structureKey;
-    mesh.userData.isRealAnatomy = true;
-    mesh.material = mesh.material.clone();
-    if ('roughness' in mesh.material) mesh.material.roughness = Math.max(mesh.material.roughness ?? 0.55, 0.45);
-    mesh.userData.baseEmissive = mesh.material.emissive?.getHex?.() ?? 0x000000;
-    mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
-  });
+  const registrationMatrix = model.matrixWorld.clone();
+  prepareImportedMeshes(importedMeshes, structureKey, targetGroup);
 
   fallbackObjects.filter((object) => object?.isObject3D).forEach((object) => {
     object.userData.replacedByReal = true;
     object.visible = false;
   });
 
-  // Existing restore logic checks whether another hidden entry exists for the
-  // same structure. Keep a non-rendering sentinel in the registry so even a
-  // single-mesh fallback (for example radius/ulna) cannot reappear after swap.
   fallbackObjects.push({ visible: false, isReplacementSentinel: true });
 
+  return { meshes: importedMeshes, registrationMatrix };
+}
+
+async function loadUsingSharedRegistration({
+  structureKey,
+  manifestItem,
+  targetGroup,
+  registrationMatrix,
+}) {
+  if (!registrationMatrix || !manifestItem?.path || manifestItem.status === 'pending-source') return null;
+
+  const model = await loadAnatomyModel({ structureKey, path: manifestItem.path });
+  if (!model) return null;
+
+  model.applyMatrix4(registrationMatrix);
+  model.updateMatrixWorld(true);
+  const importedMeshes = meshesIn(model);
+  if (!importedMeshes.length) return null;
+
+  prepareImportedMeshes(importedMeshes, structureKey, targetGroup);
   return importedMeshes;
 }
 
 export async function hydrateRealModels({ manifest, groups, fallbackRegistry, onSwap }) {
-  const jobs = Object.entries(manifest.structures).map(async ([structureKey, item]) => {
+  const registrations = new Map();
+  const deferred = [];
+
+  // First load structures that already have procedural anchors. Besides being
+  // immediately useful, these establish source→scene registration matrices.
+  for (const [structureKey, item] of Object.entries(manifest.structures)) {
     const fallbackObjects = fallbackRegistry.get(structureKey) ?? [];
     const targetGroup = groups[item.system];
-    if (!fallbackObjects.length || !targetGroup) return null;
+    if (!targetGroup || item.status === 'pending-source') continue;
 
-    const meshes = await swapInRealModel({
+    if (!fallbackObjects.length) {
+      deferred.push([structureKey, item]);
+      continue;
+    }
+
+    const result = await swapInRealModel({
       structureKey,
       manifestItem: item,
       targetGroup,
       fallbackObjects,
     });
 
-    if (meshes?.length && onSwap) onSwap(structureKey, item, meshes);
-    return meshes;
-  });
+    if (!result) continue;
+    registrations.set(structureKey, result.registrationMatrix);
+    if (onSwap) onSwap(structureKey, item, result.meshes);
+  }
 
-  return Promise.all(jobs);
+  // Structures such as scapula/clavicle do not need fake placeholders. They
+  // can explicitly inherit an already-established BodyParts3D registration.
+  for (const [structureKey, item] of deferred) {
+    const referenceKey = item.registrationReference;
+    const registrationMatrix = referenceKey ? registrations.get(referenceKey) : null;
+    const targetGroup = groups[item.system];
+    if (!registrationMatrix || !targetGroup) continue;
+
+    const meshes = await loadUsingSharedRegistration({
+      structureKey,
+      manifestItem: item,
+      targetGroup,
+      registrationMatrix,
+    });
+
+    if (meshes?.length && onSwap) onSwap(structureKey, item, meshes);
+  }
 }
