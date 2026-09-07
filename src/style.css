@@ -10,7 +10,7 @@
 
 html, body, #app { margin: 0; min-height: 100%; }
 body { min-width: 320px; background: #0b0e13; }
-button { font: inherit; }
+button, input { font: inherit; }
 
 .shell {
   min-height: 100vh;
@@ -77,7 +77,25 @@ h1 {
 .tool.accent { border-color: #596d8f; }
 .tool.active { background: #24334a; color: #f5f8ff; }
 .system:focus-visible,
-.tool:focus-visible { outline: 3px solid #8096b8; outline-offset: 2px; }
+.tool:focus-visible,
+#opacity-slider:focus-visible { outline: 3px solid #8096b8; outline-offset: 2px; }
+
+.opacity-card {
+  padding: 14px 16px;
+  border: 1px solid #2a313d;
+  border-radius: 14px;
+  background: #131820;
+}
+.opacity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.opacity-head .section-label { margin-bottom: 0; }
+#opacity-value { color: #d9e2ef; font-size: 13px; font-weight: 700; }
+#opacity-slider { width: 100%; margin: 14px 0 6px; accent-color: #8ea9cf; cursor: pointer; }
+.opacity-card p { margin: 0; color: #7f8b9b; font-size: 12px; line-height: 1.45; }
 
 .tool-row {
   display: grid;
