@@ -42,21 +42,21 @@ jobs:
           root = Path('/tmp/bodyparts3d')
           output = Path('public/models/upper-limb')
           mapping = {
-              'BP9206.obj': 'humerus.glb',
-              'BP8464.obj': 'radius.glb',
-              'BP8233.obj': 'ulna.glb',
+              'FMA23130.obj': 'humerus.glb',
+              'FMA23464.obj': 'radius.glb',
+              'FMA23467.obj': 'ulna.glb',
           }
 
           for source_name, target_name in mapping.items():
               matches = list(root.rglob(source_name))
               if not matches:
-                  raise FileNotFoundError(f'Could not find {source_name} in BodyParts3D archive')
+                  candidate_names = [p.name for p in root.rglob('*.obj') if source_name[3:-4] in p.name]
+                  raise FileNotFoundError(
+                      f'Could not find {source_name}. Candidates containing the FMA id: {candidate_names[:20]}'
+                  )
               source = matches[0]
               loaded = trimesh.load(source, force='scene', process=False)
-              if isinstance(loaded, trimesh.Trimesh):
-                  scene = trimesh.Scene(loaded)
-              else:
-                  scene = loaded
+              scene = trimesh.Scene(loaded) if isinstance(loaded, trimesh.Trimesh) else loaded
               data = scene.export(file_type='glb')
               target = output / target_name
               target.write_bytes(data)
