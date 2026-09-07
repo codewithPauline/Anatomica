@@ -69,5 +69,6 @@ jobs:
             echo 'No new asset changes to commit.'
           else
             git commit -m 'assets: add BodyParts3D humerus radius and ulna GLBs'
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
