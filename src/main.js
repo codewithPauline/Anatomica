@@ -126,6 +126,7 @@ const anatomicalGroups = {
 Object.values(anatomicalGroups).forEach((group) => scene.add(group));
 
 const systemOpacity = { skeleton: 1, muscles: 1, nerves: 1, vessels: 1 };
+const systemVisibility = { skeleton: true, muscles: false, nerves: false, vessels: false };
 const fallbackRegistry = new Map();
 const replacedStructures = new Set();
 let activeSystem = 'skeleton';
@@ -188,12 +189,12 @@ triceps.scale.set(0.78, 1, 0.7);
 const medianNerve = register(capsuleBetween(new THREE.Vector3(-0.05, 2.0, 0.43), new THREE.Vector3(0.42, -1.75, 0.42), 0.045, materials.nerve), 'medianNerve', 'nerves');
 const musculocutaneousNerve = register(capsuleBetween(new THREE.Vector3(-0.28, 2.05, 0.34), new THREE.Vector3(-0.08, 0.25, 0.36), 0.038, materials.nerve), 'musculocutaneousNerve', 'nerves');
 const radialNerve = register(capsuleBetween(new THREE.Vector3(0.2, 1.9, -0.4), new THREE.Vector3(0.48, -1.65, -0.28), 0.04, materials.nerve), 'radialNerve', 'nerves');
+const ulnarNerve = register(capsuleBetween(new THREE.Vector3(0.18, 1.72, 0.28), new THREE.Vector3(0.04, -1.82, 0.28), 0.038, materials.nerve), 'ulnarNerve', 'nerves');
+const axillaryNerve = register(capsuleBetween(new THREE.Vector3(-0.05, 2.22, -0.18), new THREE.Vector3(-0.42, 1.65, -0.05), 0.04, materials.nerve), 'axillaryNerve', 'nerves');
 register(capsuleBetween(new THREE.Vector3(0.08, 1.85, 0.48), new THREE.Vector3(0.28, 0.12, 0.48), 0.055, materials.artery), 'brachialArtery', 'vessels');
 register(capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0.62, -1.62, 0.45), 0.05, materials.vein), 'cephalicVein', 'vessels');
 
-anatomicalGroups.muscles.visible = false;
-anatomicalGroups.nerves.visible = false;
-anatomicalGroups.vessels.visible = false;
+Object.entries(systemVisibility).forEach(([system, visible]) => { anatomicalGroups[system].visible = visible; });
 
 const floor = new THREE.Mesh(
   new THREE.CircleGeometry(2.8, 64),
@@ -268,16 +269,18 @@ function setSelected(mesh) {
 
 function syncSystemButton(system) {
   const button = document.querySelector(`[data-system="${system}"]`);
-  button?.classList.toggle('active', anatomicalGroups[system].visible);
+  button?.classList.toggle('active', systemVisibility[system]);
 }
 
-function showSystem(system, visible = true) {
+function setSystemVisibility(system, visible, persist = true) {
+  if (persist) systemVisibility[system] = visible;
   anatomicalGroups[system].visible = visible;
-  syncSystemButton(system);
+  if (persist) syncSystemButton(system);
 }
 
 function restoreAll() {
   Object.entries(anatomicalGroups).forEach(([system, group]) => {
+    group.visible = systemVisibility[system];
     group.traverse((child) => {
       if (!child.isMesh) return;
       const key = child.userData.structureKey;
@@ -305,11 +308,7 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
   const hits = raycaster.intersectObjects(allMeshes().filter((mesh) => mesh.visible && mesh.parent?.visible !== false), false);
   const hit = hits[0]?.object;
   if (!hit) return;
-
-  if (quizMode) {
-    answerQuiz(hit.userData.structureKey);
-    return;
-  }
+  if (quizMode) return answerQuiz(hit.userData.structureKey);
   setSelected(hit);
 });
 
@@ -320,7 +319,7 @@ document.querySelectorAll('.system').forEach((button) => {
     document.querySelector('#opacity-slider').value = String(Math.round(systemOpacity[system] * 100));
     document.querySelector('#opacity-value').textContent = `${Math.round(systemOpacity[system] * 100)}%`;
     document.querySelector('#opacity-system').textContent = `${button.textContent} selected`;
-    showSystem(system, !anatomicalGroups[system].visible);
+    setSystemVisibility(system, !systemVisibility[system]);
   });
 });
 
@@ -352,7 +351,7 @@ brachialPlexus.terminalBranches.forEach((branch) => {
   button.className = 'branch-button';
   button.innerHTML = `<b>${branch.name}</b><span>${branch.cord} · ${branch.roots.join('–')}</span>`;
   button.addEventListener('click', () => {
-    showSystem('nerves', true);
+    setSystemVisibility('nerves', true);
     clearHighlight();
     highlightStructure(branch.structureKey, 0x8b6b00, 0.85);
     const mesh = meshesForStructure(branch.structureKey)[0];
@@ -361,6 +360,7 @@ brachialPlexus.terminalBranches.forEach((branch) => {
   branchContainer.appendChild(button);
 });
 
+const plexusKeys = ['musculocutaneousNerve', 'medianNerve', 'ulnarNerve', 'axillaryNerve', 'radialNerve'];
 document.querySelector('#plexus-btn').addEventListener('click', () => {
   plexusMode = !plexusMode;
   document.querySelector('#plexus-btn').classList.toggle('active', plexusMode);
@@ -369,9 +369,9 @@ document.querySelector('#plexus-btn').addEventListener('click', () => {
     quizMode = false;
     document.querySelector('#quiz-btn').classList.remove('active');
     document.querySelector('#quiz-card').hidden = true;
-    showSystem('nerves', true);
+    setSystemVisibility('nerves', true);
     clearHighlight();
-    ['medianNerve', 'musculocutaneousNerve', 'radialNerve'].forEach((key) => highlightStructure(key, 0x6a5200, 0.7));
+    plexusKeys.forEach((key) => highlightStructure(key, 0x6a5200, 0.7));
     setModeBadge('Brachial Plexus Mode');
   } else {
     clearHighlight();
@@ -402,7 +402,6 @@ function answerQuiz(structureKey) {
   const question = currentQuiz();
   const correct = structureKey === question.target;
   if (correct) quizCorrect += 1;
-
   clearHighlight();
   highlightStructure(question.target, correct ? 0x2d7c52 : 0x7c5e20, 0.9);
   const feedback = document.querySelector('#quiz-feedback');
@@ -425,7 +424,7 @@ document.querySelector('#quiz-btn').addEventListener('click', () => {
     plexusMode = false;
     document.querySelector('#plexus-btn').classList.remove('active');
     document.querySelector('#plexus-card').hidden = true;
-    Object.keys(anatomicalGroups).forEach((system) => showSystem(system, true));
+    Object.keys(anatomicalGroups).forEach((system) => setSystemVisibility(system, true));
     setModeBadge('Quiz Mode');
     renderQuiz();
   } else {
