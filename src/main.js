@@ -25,6 +25,15 @@ app.innerHTML = `
         </div>
       </div>
 
+      <div class="opacity-card">
+        <div class="opacity-head">
+          <span class="section-label">Transparency</span>
+          <span id="opacity-value">100%</span>
+        </div>
+        <input id="opacity-slider" type="range" min="15" max="100" value="100" step="5" aria-label="Selected system transparency" />
+        <p>Adjusts the most recently selected anatomical system.</p>
+      </div>
+
       <div class="tool-row" aria-label="Viewer tools">
         <button id="isolate-btn" class="tool">Isolate</button>
         <button id="restore-btn" class="tool">Restore</button>
@@ -83,6 +92,9 @@ const anatomicalGroups = {
 };
 Object.values(anatomicalGroups).forEach((group) => scene.add(group));
 
+const systemOpacity = { skeleton: 1, muscles: 1, nerves: 1, vessels: 1 };
+let activeSystem = 'skeleton';
+
 const fallbackRegistry = new Map();
 function addFallback(structureKey, object) {
   const items = fallbackRegistry.get(structureKey) ?? [];
@@ -110,6 +122,7 @@ const materials = {
 
 function register(mesh, structureKey, groupName, isFallback = true) {
   mesh.userData.structureKey = structureKey;
+  mesh.userData.system = groupName;
   mesh.userData.baseEmissive = mesh.material.emissive?.getHex?.() ?? 0x000000;
   mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
   anatomicalGroups[groupName].add(mesh);
@@ -160,6 +173,16 @@ function allMeshes() {
     });
   });
   return meshes;
+}
+
+function applySystemOpacity(system, opacity) {
+  anatomicalGroups[system].traverse((object) => {
+    if (!object.isMesh || !object.material) return;
+    object.material.transparent = opacity < 1;
+    object.material.opacity = opacity;
+    object.material.depthWrite = opacity > 0.55;
+    object.material.needsUpdate = true;
+  });
 }
 
 function clearHighlight() {
@@ -223,10 +246,20 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
 document.querySelectorAll('.system').forEach((button) => {
   button.addEventListener('click', () => {
     const system = button.dataset.system;
+    activeSystem = system;
+    document.querySelector('#opacity-slider').value = String(Math.round(systemOpacity[system] * 100));
+    document.querySelector('#opacity-value').textContent = `${Math.round(systemOpacity[system] * 100)}%`;
     const show = !anatomicalGroups[system].visible;
     anatomicalGroups[system].visible = show;
     button.classList.toggle('active', show);
   });
+});
+
+document.querySelector('#opacity-slider').addEventListener('input', (event) => {
+  const opacity = Number(event.target.value) / 100;
+  systemOpacity[activeSystem] = opacity;
+  document.querySelector('#opacity-value').textContent = `${event.target.value}%`;
+  applySystemOpacity(activeSystem, opacity);
 });
 
 document.querySelector('#isolate-btn').addEventListener('click', () => {
@@ -265,6 +298,8 @@ hydrateRealModels({
   fallbackRegistry,
   onSwap: (structureKey, item, meshes) => {
     realAssetCount += 1;
+    meshes.forEach((mesh) => { mesh.userData.system = item.system; });
+    applySystemOpacity(item.system, systemOpacity[item.system]);
     document.querySelector('#viewer-badge').textContent = `${realAssetCount} validated GLB structure${realAssetCount === 1 ? '' : 's'} loaded · ${item.sourceLabel ?? structureKey}`;
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
