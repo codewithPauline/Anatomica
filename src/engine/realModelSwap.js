@@ -19,13 +19,26 @@ function boxMetrics(objects) {
   return { box, size, center };
 }
 
+function dominantAxis(size) {
+  if (size.x >= size.y && size.x >= size.z) return new THREE.Vector3(1, 0, 0);
+  if (size.y >= size.x && size.y >= size.z) return new THREE.Vector3(0, 1, 0);
+  return new THREE.Vector3(0, 0, 1);
+}
+
 /**
  * Try to replace a procedural structure with a GLB from the manifest.
  * Missing GLBs are intentionally non-fatal: the teaching fallback remains.
  *
- * The first-stage registration fits the imported model to the fallback's
- * bounding envelope. This is a visual registration only; production assets
- * must still be anatomically validated before being marked `ready`.
+ * Registration is deliberately lightweight for the v0.1 viewer:
+ * 1. align the imported structure's dominant longitudinal axis to the
+ *    fallback structure's dominant axis,
+ * 2. scale it to the fallback envelope,
+ * 3. center it on the fallback structure.
+ *
+ * BodyParts3D upper-limb bones use a shared anatomical coordinate system in
+ * which their long axis is predominantly Z, while the current teaching arm is
+ * predominantly Y. Performing the axis alignment before scaling prevents real
+ * bones from appearing sideways when they replace the procedural geometry.
  */
 export async function swapInRealModel({
   structureKey,
@@ -46,7 +59,15 @@ export async function swapInRealModel({
 
   const fallback = boxMetrics(fallbackObjects);
   const imported = boxMetrics(importedMeshes);
-  const importedMax = Math.max(imported.size.x, imported.size.y, imported.size.z);
+
+  const importedAxis = dominantAxis(imported.size);
+  const fallbackAxis = dominantAxis(fallback.size);
+  const axisRotation = new THREE.Quaternion().setFromUnitVectors(importedAxis, fallbackAxis);
+  model.quaternion.premultiply(axisRotation);
+  model.updateMatrixWorld(true);
+
+  const aligned = boxMetrics(importedMeshes);
+  const importedMax = Math.max(aligned.size.x, aligned.size.y, aligned.size.z);
   const fallbackMax = Math.max(fallback.size.x, fallback.size.y, fallback.size.z);
 
   if (importedMax > 0 && fallbackMax > 0) {
