@@ -84,6 +84,27 @@ export const quizQuestions = [
     explanation: 'Subscapularis is the anterior cuff muscle, inserts on the lesser tubercle, and is the principal cuff muscle for internal rotation.',
   },
   {
+    id: 'q-brachialis-1',
+    prompt: 'Identify the deep anterior arm muscle that is the primary elbow flexor regardless of forearm position.',
+    target: 'brachialis',
+    answer: 'Brachialis',
+    explanation: 'Brachialis lies deep to biceps brachii, inserts on the ulna, and flexes the elbow efficiently in pronation, supination, or neutral position.',
+  },
+  {
+    id: 'q-coracobrachialis-1',
+    prompt: 'Identify the proximal anterior arm muscle that is classically pierced by the musculocutaneous nerve.',
+    target: 'coracobrachialis',
+    answer: 'Coracobrachialis',
+    explanation: 'The musculocutaneous nerve typically pierces coracobrachialis, an important landmark muscle that flexes and adducts the arm.',
+  },
+  {
+    id: 'q-teres-major-1',
+    prompt: 'Identify the muscle near teres minor that adducts and medially rotates the arm but is not part of the rotator cuff.',
+    target: 'teresMajor',
+    answer: 'Teres major',
+    explanation: 'Teres major is not a rotator-cuff muscle. It adducts, medially rotates, and assists extension of the humerus.',
+  },
+  {
     id: 'q-median-1',
     prompt: 'Which displayed nerve is classically associated with carpal tunnel syndrome?',
     target: 'medianNerve',
