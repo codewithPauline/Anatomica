@@ -39,6 +39,7 @@ app.innerHTML = `
       <section class="tool-row" aria-label="Viewer tools">
         <button id="isolate-btn" class="tool">Isolate</button>
         <button id="restore-btn" class="tool">Restore</button>
+        <button id="rotator-btn" class="tool">Rotator cuff</button>
         <button id="plexus-btn" class="tool">Brachial plexus</button>
         <button id="quiz-btn" class="tool accent">Quiz mode</button>
       </section>
@@ -132,6 +133,7 @@ const replacedStructures = new Set();
 let activeSystem = 'skeleton';
 let selectedMesh = null;
 let plexusMode = false;
+let rotatorMode = false;
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -186,11 +188,11 @@ biceps.scale.set(0.82, 1, 0.72);
 const triceps = register(capsuleBetween(new THREE.Vector3(0.18, 1.95, -0.31), new THREE.Vector3(0.24, 0.23, -0.25), 0.28, materials.muscle), 'tricepsBrachii', 'muscles');
 triceps.scale.set(0.78, 1, 0.7);
 
-const medianNerve = register(capsuleBetween(new THREE.Vector3(-0.05, 2.0, 0.43), new THREE.Vector3(0.42, -1.75, 0.42), 0.045, materials.nerve), 'medianNerve', 'nerves');
-const musculocutaneousNerve = register(capsuleBetween(new THREE.Vector3(-0.28, 2.05, 0.34), new THREE.Vector3(-0.08, 0.25, 0.36), 0.038, materials.nerve), 'musculocutaneousNerve', 'nerves');
-const radialNerve = register(capsuleBetween(new THREE.Vector3(0.2, 1.9, -0.4), new THREE.Vector3(0.48, -1.65, -0.28), 0.04, materials.nerve), 'radialNerve', 'nerves');
-const ulnarNerve = register(capsuleBetween(new THREE.Vector3(0.18, 1.72, 0.28), new THREE.Vector3(0.04, -1.82, 0.28), 0.038, materials.nerve), 'ulnarNerve', 'nerves');
-const axillaryNerve = register(capsuleBetween(new THREE.Vector3(-0.05, 2.22, -0.18), new THREE.Vector3(-0.42, 1.65, -0.05), 0.04, materials.nerve), 'axillaryNerve', 'nerves');
+register(capsuleBetween(new THREE.Vector3(-0.05, 2.0, 0.43), new THREE.Vector3(0.42, -1.75, 0.42), 0.045, materials.nerve), 'medianNerve', 'nerves');
+register(capsuleBetween(new THREE.Vector3(-0.28, 2.05, 0.34), new THREE.Vector3(-0.08, 0.25, 0.36), 0.038, materials.nerve), 'musculocutaneousNerve', 'nerves');
+register(capsuleBetween(new THREE.Vector3(0.2, 1.9, -0.4), new THREE.Vector3(0.48, -1.65, -0.28), 0.04, materials.nerve), 'radialNerve', 'nerves');
+register(capsuleBetween(new THREE.Vector3(0.18, 1.72, 0.28), new THREE.Vector3(0.04, -1.82, 0.28), 0.038, materials.nerve), 'ulnarNerve', 'nerves');
+register(capsuleBetween(new THREE.Vector3(-0.05, 2.22, -0.18), new THREE.Vector3(-0.42, 1.65, -0.05), 0.04, materials.nerve), 'axillaryNerve', 'nerves');
 register(capsuleBetween(new THREE.Vector3(0.08, 1.85, 0.48), new THREE.Vector3(0.28, 0.12, 0.48), 0.055, materials.artery), 'brachialArtery', 'vessels');
 register(capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0.62, -1.62, 0.45), 0.05, materials.vein), 'cephalicVein', 'vessels');
 
@@ -216,8 +218,8 @@ function meshesForStructure(structureKey) {
   return allMeshes().filter((mesh) => mesh.userData.structureKey === structureKey && mesh.visible);
 }
 
-function fitCameraToAnatomy(padding = 1.22) {
-  const visibleMeshes = allMeshes().filter((mesh) => mesh.visible && mesh.parent?.visible !== false);
+function fitCameraToMeshes(meshes, padding = 1.22) {
+  const visibleMeshes = meshes.filter((mesh) => mesh?.isMesh && mesh.visible && mesh.parent?.visible !== false);
   if (!visibleMeshes.length) return;
 
   const box = new THREE.Box3();
@@ -232,13 +234,17 @@ function fitCameraToAnatomy(padding = 1.22) {
   if (!Number.isFinite(maxDim) || maxDim <= 0) return;
 
   const fov = THREE.MathUtils.degToRad(camera.fov);
-  const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 2.6);
+  const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 2.2);
   controls.target.copy(center);
   camera.position.set(center.x + distance * 0.72, center.y + distance * 0.18, center.z + distance);
   camera.near = Math.max(distance / 100, 0.03);
   camera.far = Math.max(distance * 20, 50);
   camera.updateProjectionMatrix();
   controls.update();
+}
+
+function fitCameraToAnatomy(padding = 1.22) {
+  fitCameraToMeshes(allMeshes(), padding);
 }
 
 function applySystemOpacity(system, opacity) {
@@ -366,8 +372,48 @@ document.querySelector('#isolate-btn').addEventListener('click', () => {
 });
 
 document.querySelector('#restore-btn').addEventListener('click', () => {
+  rotatorMode = false;
+  document.querySelector('#rotator-btn').classList.remove('active');
   restoreAll();
   if (!plexusMode && !quizMode) setModeBadge('');
+});
+
+const rotatorKeys = ['supraspinatus', 'infraspinatus', 'teresMinor', 'subscapularis'];
+const shoulderSkeletonKeys = ['humerus', 'scapula', 'clavicle'];
+const shoulderStudyKeys = [...shoulderSkeletonKeys, 'deltoid', ...rotatorKeys];
+
+document.querySelector('#rotator-btn').addEventListener('click', () => {
+  rotatorMode = !rotatorMode;
+  document.querySelector('#rotator-btn').classList.toggle('active', rotatorMode);
+
+  if (rotatorMode) {
+    plexusMode = false;
+    quizMode = false;
+    document.querySelector('#plexus-btn').classList.remove('active');
+    document.querySelector('#quiz-btn').classList.remove('active');
+    document.querySelector('#plexus-card').hidden = true;
+    document.querySelector('#quiz-card').hidden = true;
+
+    setSystemVisibility('skeleton', true, false);
+    setSystemVisibility('muscles', true, false);
+    setSystemVisibility('nerves', false, false);
+    setSystemVisibility('vessels', false, false);
+
+    allMeshes().forEach((mesh) => {
+      const key = mesh.userData.structureKey;
+      if (mesh.userData.system === 'skeleton') mesh.visible = shoulderSkeletonKeys.includes(key);
+      if (mesh.userData.system === 'muscles') mesh.visible = shoulderStudyKeys.includes(key);
+    });
+
+    clearHighlight();
+    rotatorKeys.forEach((key) => highlightStructure(key, 0x7f303f, 0.6));
+    setModeBadge('Rotator Cuff · SITS');
+    fitCameraToMeshes(allMeshes().filter((mesh) => shoulderStudyKeys.includes(mesh.userData.structureKey)), 1.35);
+  } else {
+    restoreAll();
+    setModeBadge('');
+    fitCameraToAnatomy();
+  }
 });
 
 const branchContainer = document.querySelector('#plexus-branches');
@@ -391,9 +437,12 @@ document.querySelector('#plexus-btn').addEventListener('click', () => {
   document.querySelector('#plexus-btn').classList.toggle('active', plexusMode);
   document.querySelector('#plexus-card').hidden = !plexusMode;
   if (plexusMode) {
+    rotatorMode = false;
+    document.querySelector('#rotator-btn').classList.remove('active');
     quizMode = false;
     document.querySelector('#quiz-btn').classList.remove('active');
     document.querySelector('#quiz-card').hidden = true;
+    restoreAll();
     setSystemVisibility('nerves', true);
     clearHighlight();
     plexusKeys.forEach((key) => highlightStructure(key, 0x6a5200, 0.7));
@@ -446,9 +495,12 @@ document.querySelector('#quiz-btn').addEventListener('click', () => {
   document.querySelector('#quiz-btn').classList.toggle('active', quizMode);
   document.querySelector('#quiz-card').hidden = !quizMode;
   if (quizMode) {
+    rotatorMode = false;
+    document.querySelector('#rotator-btn').classList.remove('active');
     plexusMode = false;
     document.querySelector('#plexus-btn').classList.remove('active');
     document.querySelector('#plexus-card').hidden = true;
+    restoreAll();
     Object.keys(anatomicalGroups).forEach((system) => setSystemVisibility(system, true));
     setModeBadge('Quiz Mode');
     renderQuiz();
@@ -474,7 +526,7 @@ hydrateRealModels({
     });
     fallbackRegistry.get(structureKey)?.forEach((fallback) => { fallback.visible = false; });
     applySystemOpacity(item.system, systemOpacity[item.system]);
-    document.querySelector('#viewer-badge').textContent = `${realAssetCount} real skeletal GLB${realAssetCount === 1 ? '' : 's'} · teaching overlays active`;
+    document.querySelector('#viewer-badge').textContent = `${realAssetCount} real anatomical GLB${realAssetCount === 1 ? '' : 's'} · teaching overlays active`;
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
 }).then(() => {
