@@ -35,6 +35,20 @@ export const quizQuestions = [
     explanation: 'The radial nerve courses near the humeral shaft and supplies the extensor compartments of the upper limb.',
   },
   {
+    id: 'q-ulnar-1',
+    prompt: 'Identify the nerve most vulnerable behind the medial epicondyle and in the cubital tunnel.',
+    target: 'ulnarNerve',
+    answer: 'Ulnar nerve',
+    explanation: 'The ulnar nerve passes posterior to the medial epicondyle and continues through the cubital tunnel before supplying much of the intrinsic hand musculature.',
+  },
+  {
+    id: 'q-axillary-1',
+    prompt: 'Identify the nerve at risk in a surgical-neck fracture of the humerus or anterior shoulder dislocation.',
+    target: 'axillaryNerve',
+    answer: 'Axillary nerve',
+    explanation: 'The axillary nerve winds around the surgical neck of the humerus and supplies the deltoid and teres minor.',
+  },
+  {
     id: 'q-biceps-1',
     prompt: 'Identify the anterior arm muscle that flexes the elbow and strongly supinates the forearm.',
     target: 'bicepsBrachii',
