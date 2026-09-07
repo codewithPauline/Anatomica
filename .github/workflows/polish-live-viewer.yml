@@ -1,0 +1,71 @@
+name: Polish Anatomica Live Viewer
+
+on:
+  push:
+    paths:
+      - '.github/workflows/polish-live-viewer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply viewer framing and hybrid-state polish
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          main = Path('src/main.js')
+          text = main.read_text()
+
+          text = text.replace(
+              "camera.position.set(4.2, 2.2, 7.2);",
+              "camera.position.set(3.2, 1.4, 5.3);"
+          )
+          text = text.replace("controls.minDistance = 3;", "controls.minDistance = 1.8;")
+          text = text.replace("controls.maxDistance = 12;", "controls.maxDistance = 10;")
+          text = text.replace("new THREE.CircleGeometry(2.8, 64)", "new THREE.CircleGeometry(2.15, 64)")
+
+          marker = '''function meshesForStructure(structureKey) {\n  return allMeshes().filter((mesh) => mesh.userData.structureKey === structureKey && mesh.visible);\n}\n'''
+          addition = marker + '''\nfunction fitCameraToAnatomy(padding = 1.22) {\n  const visibleMeshes = allMeshes().filter((mesh) => mesh.visible && mesh.parent?.visible !== false);\n  if (!visibleMeshes.length) return;\n\n  const box = new THREE.Box3();\n  visibleMeshes.forEach((mesh) => box.expandByObject(mesh));\n  if (box.isEmpty()) return;\n\n  const size = new THREE.Vector3();\n  const center = new THREE.Vector3();\n  box.getSize(size);\n  box.getCenter(center);\n  const maxDim = Math.max(size.x, size.y, size.z);\n  if (!Number.isFinite(maxDim) || maxDim <= 0) return;\n\n  const fov = THREE.MathUtils.degToRad(camera.fov);\n  const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 2.6);\n  controls.target.copy(center);\n  camera.position.set(center.x + distance * 0.72, center.y + distance * 0.18, center.z + distance);\n  camera.near = Math.max(distance / 100, 0.03);\n  camera.far = Math.max(distance * 20, 50);\n  camera.updateProjectionMatrix();\n  controls.update();\n}\n'''
+          if 'function fitCameraToAnatomy' not in text:
+              text = text.replace(marker, addition)
+
+          text = text.replace(
+              "document.querySelector('#viewer-badge').textContent = `${realAssetCount} validated GLB structure${realAssetCount === 1 ? '' : 's'} loaded`;",
+              "document.querySelector('#viewer-badge').textContent = `${realAssetCount} real skeletal GLB${realAssetCount === 1 ? '' : 's'} · teaching overlays active`;"
+          )
+          text = text.replace(
+              "}).then(() => {\n  if (realAssetCount === 0) {",
+              "}).then(() => {\n  fitCameraToAnatomy();\n  if (realAssetCount === 0) {"
+          )
+
+          main.write_text(text)
+
+          style = Path('src/style.css')
+          css = style.read_text()
+          css = css.replace("content: 'PROTOTYPE GEOMETRY';", "content: 'HYBRID 3D ANATOMY';")
+          css = css.replace("rgba(65, 91, 130, 0.16)", "rgba(65, 91, 130, 0.11)")
+          style.write_text(css)
+          PY
+
+      - name: Commit polish
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main.js src/style.css
+          if git diff --cached --quiet; then
+            echo 'Viewer already polished.'
+          else
+            git commit -m 'style: frame live anatomy and label hybrid model state'
+            git pull --rebase origin main
+            git push origin main
+          fi
