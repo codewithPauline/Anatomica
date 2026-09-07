@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Download BodyParts3D and extract Anatomica's first upper-limb source meshes.
+"""Download BodyParts3D and prepare Anatomica's first upper-limb assets.
 
-This script intentionally keeps the upstream archive outside public/ because the
-full ZIP is large. Only the selected OBJ files are copied into assets/source/.
-If Blender is installed and available on PATH, pass --convert to export GLB files
-into public/models/upper-limb/.
+The full upstream archive is cached outside public/. Only selected OBJ files are
+extracted. With --convert, Blender combines multi-part structures (for example,
+the heads of biceps brachii) into one browser-ready GLB per Anatomica structure.
 """
 
 from __future__ import annotations
@@ -18,10 +17,15 @@ import zipfile
 from pathlib import Path
 
 ARCHIVE_URL = "https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/isa_BP3D_4.0_obj_99.zip"
-TARGETS = {
-    "BP9206.obj": "humerus",
-    "BP8464.obj": "radius",
-    "BP8233.obj": "ulna",
+
+STRUCTURES = {
+    "humerus": ["BP9206.obj"],
+    "radius": ["BP8464.obj"],
+    "ulna": ["BP8233.obj"],
+    "biceps-brachii": ["BP5558.obj", "BP5566.obj"],
+    "triceps-brachii": ["BP5562.obj", "BP5550.obj", "BP5564.obj"],
+    "brachial-artery": ["BP6020.obj"],
+    "cephalic-vein": ["BP5943.obj"],
 }
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,24 +46,26 @@ def download_archive() -> None:
     print(f"Saved: {ZIP_PATH}")
 
 
-def extract_targets() -> list[Path]:
+def extract_targets() -> dict[str, list[Path]]:
     SOURCE_DIR.mkdir(parents=True, exist_ok=True)
-    extracted: list[Path] = []
+    extracted: dict[str, list[Path]] = {}
     with zipfile.ZipFile(ZIP_PATH) as archive:
         members = {Path(name).name: name for name in archive.namelist()}
-        for source_name, friendly_name in TARGETS.items():
-            member = members.get(source_name)
-            if not member:
-                raise FileNotFoundError(f"{source_name} was not found in the BodyParts3D archive")
-            destination = SOURCE_DIR / source_name
-            with archive.open(member) as src, destination.open("wb") as dst:
-                shutil.copyfileobj(src, dst)
-            extracted.append(destination)
-            print(f"Extracted {friendly_name}: {destination}")
+        for structure, filenames in STRUCTURES.items():
+            extracted[structure] = []
+            for filename in filenames:
+                member = members.get(filename)
+                if not member:
+                    raise FileNotFoundError(f"{filename} was not found in the BodyParts3D archive")
+                destination = SOURCE_DIR / filename
+                with archive.open(member) as src, destination.open("wb") as dst:
+                    shutil.copyfileobj(src, dst)
+                extracted[structure].append(destination)
+                print(f"Extracted {structure}: {destination.name}")
     return extracted
 
 
-def convert_with_blender(paths: list[Path]) -> None:
+def convert_with_blender(extracted: dict[str, list[Path]]) -> None:
     blender = shutil.which("blender")
     if not blender:
         raise RuntimeError(
@@ -67,19 +73,18 @@ def convert_with_blender(paths: list[Path]) -> None:
             "or convert the extracted OBJ files manually to GLB."
         )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    for path in paths:
-        out_name = TARGETS[path.name]
-        output = OUTPUT_DIR / f"{out_name}.glb"
+    for structure, paths in extracted.items():
+        output = OUTPUT_DIR / f"{structure}.glb"
         cmd = [
             blender,
             "--background",
             "--python",
             str(BLENDER_SCRIPT),
             "--",
-            str(path),
+            *(str(path) for path in paths),
             str(output),
         ]
-        print(f"Converting {path.name} -> {output.name}")
+        print(f"Converting {structure}: {', '.join(path.name for path in paths)} -> {output.name}")
         subprocess.run(cmd, check=True)
 
 
@@ -90,9 +95,9 @@ def main() -> int:
 
     try:
         download_archive()
-        paths = extract_targets()
+        extracted = extract_targets()
         if args.convert:
-            convert_with_blender(paths)
+            convert_with_blender(extracted)
         else:
             print("\nOBJ extraction complete. Rerun with --convert after Blender is installed to create GLB files.")
         print("\nSource: BodyParts3D / Database Center for Life Science — CC BY 4.0. See ASSETS.md.")
