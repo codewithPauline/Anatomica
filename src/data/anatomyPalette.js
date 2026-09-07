@@ -23,6 +23,9 @@ export const ANATOMY_COLORS = {
     infraspinatus: 0xb95d6a,
     teresMinor: 0xc97562,
     subscapularis: 0xa94f5f,
+    brachialis: 0xc95f4f,
+    coracobrachialis: 0xdf7665,
+    teresMajor: 0x9f4657,
 
     brachialArtery: 0xd9343a,
     cephalicVein: 0x4779df,
