@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { upperLimbStructures } from './data/upperLimb.js';
+import { modelManifest } from './data/modelManifest.js';
+import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
 const app = document.querySelector('#app');
-
 app.innerHTML = `
   <div class="shell">
     <aside class="sidebar">
@@ -43,7 +44,7 @@ app.innerHTML = `
 
     <main class="viewer-wrap">
       <canvas id="viewer" aria-label="Interactive 3D upper limb anatomy viewer"></canvas>
-      <div class="viewer-badge">Educational prototype · simplified geometry</div>
+      <div id="viewer-badge" class="viewer-badge">Educational prototype · loading validated assets</div>
       <div id="mode-badge" class="mode-badge" hidden>Brachial Plexus Mode</div>
     </main>
   </div>
@@ -82,11 +83,18 @@ const anatomicalGroups = {
 };
 Object.values(anatomicalGroups).forEach((group) => scene.add(group));
 
+const fallbackRegistry = new Map();
+function addFallback(structureKey, object) {
+  const items = fallbackRegistry.get(structureKey) ?? [];
+  items.push(object);
+  fallbackRegistry.set(structureKey, items);
+}
+
 function capsuleBetween(start, end, radius, material) {
   const direction = new THREE.Vector3().subVectors(end, start);
   const length = direction.length();
   const geometry = new THREE.CapsuleGeometry(radius, Math.max(length - radius * 2, 0.05), 8, 20);
-  const mesh = new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material.clone());
   mesh.position.copy(start).add(end).multiplyScalar(0.5);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
   return mesh;
@@ -100,24 +108,23 @@ const materials = {
   vein: new THREE.MeshStandardMaterial({ color: 0x3d5e91, roughness: 0.55 }),
 };
 
-const shoulder = new THREE.Vector3(0, 2.2, 0);
-const elbow = new THREE.Vector3(0.25, 0.1, 0.05);
-
-function register(mesh, structureKey, groupName) {
+function register(mesh, structureKey, groupName, isFallback = true) {
   mesh.userData.structureKey = structureKey;
   mesh.userData.baseEmissive = mesh.material.emissive?.getHex?.() ?? 0x000000;
   mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
   anatomicalGroups[groupName].add(mesh);
+  if (isFallback) addFallback(structureKey, mesh);
   return mesh;
 }
 
+const shoulder = new THREE.Vector3(0, 2.2, 0);
+const elbow = new THREE.Vector3(0.25, 0.1, 0.05);
 const humerus = register(capsuleBetween(shoulder, elbow, 0.22, materials.bone), 'humerus', 'skeleton');
-const radius = register(capsuleBetween(new THREE.Vector3(0.15, 0.05, 0.08), new THREE.Vector3(0.62, -1.85, 0.22), 0.11, materials.bone), 'radius', 'skeleton');
-const ulna = register(capsuleBetween(new THREE.Vector3(0.34, 0.05, -0.03), new THREE.Vector3(0.23, -1.88, -0.12), 0.12, materials.bone), 'ulna', 'skeleton');
-const humeralHead = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 20), materials.bone);
+register(capsuleBetween(new THREE.Vector3(0.15, 0.05, 0.08), new THREE.Vector3(0.62, -1.85, 0.22), 0.11, materials.bone), 'radius', 'skeleton');
+register(capsuleBetween(new THREE.Vector3(0.34, 0.05, -0.03), new THREE.Vector3(0.23, -1.88, -0.12), 0.12, materials.bone), 'ulna', 'skeleton');
+const humeralHead = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 20), materials.bone.clone());
 humeralHead.position.copy(shoulder);
-humeralHead.userData.structureKey = 'humerus';
-anatomicalGroups.skeleton.add(humeralHead);
+register(humeralHead, 'humerus', 'skeleton');
 
 const biceps = register(capsuleBetween(new THREE.Vector3(-0.18, 1.88, 0.32), new THREE.Vector3(0.12, 0.28, 0.34), 0.3, materials.muscle), 'bicepsBrachii', 'muscles');
 biceps.scale.set(0.82, 1, 0.72);
@@ -127,9 +134,8 @@ triceps.scale.set(0.78, 1, 0.7);
 const medianNerve = register(capsuleBetween(new THREE.Vector3(-0.05, 2.0, 0.43), new THREE.Vector3(0.42, -1.75, 0.42), 0.045, materials.nerve), 'medianNerve', 'nerves');
 const musculocutaneousNerve = register(capsuleBetween(new THREE.Vector3(-0.28, 2.05, 0.34), new THREE.Vector3(-0.08, 0.25, 0.36), 0.038, materials.nerve), 'musculocutaneousNerve', 'nerves');
 const radialNerve = register(capsuleBetween(new THREE.Vector3(0.2, 1.9, -0.4), new THREE.Vector3(0.48, -1.65, -0.28), 0.04, materials.nerve), 'radialNerve', 'nerves');
-
-const brachialArtery = register(capsuleBetween(new THREE.Vector3(0.08, 1.85, 0.48), new THREE.Vector3(0.28, 0.12, 0.48), 0.055, materials.artery), 'brachialArtery', 'vessels');
-const cephalicVein = register(capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0.62, -1.62, 0.45), 0.05, materials.vein), 'cephalicVein', 'vessels');
+register(capsuleBetween(new THREE.Vector3(0.08, 1.85, 0.48), new THREE.Vector3(0.28, 0.12, 0.48), 0.055, materials.artery), 'brachialArtery', 'vessels');
+register(capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0.62, -1.62, 0.45), 0.05, materials.vein), 'cephalicVein', 'vessels');
 
 anatomicalGroups.muscles.visible = false;
 anatomicalGroups.nerves.visible = false;
@@ -144,9 +150,16 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let selectedMesh = humerus;
 let plexusMode = false;
+let realAssetCount = 0;
 
 function allMeshes() {
-  return Object.values(anatomicalGroups).flatMap((group) => group.children).filter((obj) => obj.isMesh);
+  const meshes = [];
+  Object.values(anatomicalGroups).forEach((group) => {
+    group.traverse((object) => {
+      if (object.isMesh) meshes.push(object);
+    });
+  });
+  return meshes;
 }
 
 function clearHighlight() {
@@ -188,7 +201,11 @@ function restoreAll() {
   Object.entries(anatomicalGroups).forEach(([name, group]) => {
     const button = document.querySelector(`[data-system="${name}"]`);
     group.visible = button?.classList.contains('active') ?? true;
-    group.children.forEach((child) => { child.visible = true; });
+    group.traverse((child) => {
+      if (!child.isMesh) return;
+      const fallbackHiddenByReal = !child.userData.isRealAnatomy && fallbackRegistry.get(child.userData.structureKey)?.some((item) => item.visible === false && item !== child);
+      if (!fallbackHiddenByReal) child.visible = true;
+    });
   });
   clearHighlight();
   setSelected(selectedMesh);
@@ -199,7 +216,7 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(allMeshes().filter((mesh) => mesh.visible && mesh.parent.visible), false);
+  const hits = raycaster.intersectObjects(allMeshes().filter((mesh) => mesh.visible), false);
   if (hits[0]) setSelected(hits[0].object);
 });
 
@@ -241,6 +258,21 @@ document.querySelector('#plexus-btn').addEventListener('click', () => {
 
 renderInfo('humerus');
 setSelected(humerus);
+
+hydrateRealModels({
+  manifest: modelManifest,
+  groups: anatomicalGroups,
+  fallbackRegistry,
+  onSwap: (structureKey, item, meshes) => {
+    realAssetCount += 1;
+    document.querySelector('#viewer-badge').textContent = `${realAssetCount} validated GLB structure${realAssetCount === 1 ? '' : 's'} loaded · ${item.sourceLabel ?? structureKey}`;
+    if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
+  },
+}).then(() => {
+  if (realAssetCount === 0) {
+    document.querySelector('#viewer-badge').textContent = 'Educational prototype · validated GLBs load automatically when present';
+  }
+});
 
 function resize() {
   const parent = canvas.parentElement;
