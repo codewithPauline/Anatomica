@@ -11,7 +11,7 @@ function meshesIn(root) {
 
 function boxMetrics(objects) {
   const box = new THREE.Box3();
-  objects.forEach((object) => box.expandByObject(object));
+  objects.filter((object) => object?.isObject3D).forEach((object) => box.expandByObject(object));
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
   box.getSize(size);
@@ -39,7 +39,7 @@ export async function swapInRealModel({
   if (!model) return null;
 
   model.updateMatrixWorld(true);
-  fallbackObjects.forEach((object) => object.updateMatrixWorld(true));
+  fallbackObjects.filter((object) => object?.isObject3D).forEach((object) => object.updateMatrixWorld(true));
 
   const importedMeshes = meshesIn(model);
   if (!importedMeshes.length) return null;
@@ -68,10 +68,15 @@ export async function swapInRealModel({
     mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
   });
 
-  fallbackObjects.forEach((object) => {
+  fallbackObjects.filter((object) => object?.isObject3D).forEach((object) => {
     object.userData.replacedByReal = true;
     object.visible = false;
   });
+
+  // Existing restore logic checks whether another hidden entry exists for the
+  // same structure. Keep a non-rendering sentinel in the registry so even a
+  // single-mesh fallback (for example radius/ulna) cannot reappear after swap.
+  fallbackObjects.push({ visible: false, isReplacementSentinel: true });
 
   return importedMeshes;
 }
