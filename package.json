@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "assets:extract": "python scripts/prepare_bodyparts3d.py",
+    "assets:build": "python scripts/prepare_bodyparts3d.py --convert"
   },
   "dependencies": {
     "three": "^0.179.1"
