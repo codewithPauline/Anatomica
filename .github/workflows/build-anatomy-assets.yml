@@ -71,6 +71,11 @@ jobs:
               'scapula.glb': ['FJ3384.obj'],
               'biceps-brachii.glb': ['FJ1512.obj', 'FJ1478.obj'],
               'triceps-brachii.glb': ['FJ1480.obj', 'FJ1477.obj', 'FJ1479.obj'],
+              'deltoid.glb': ['FJ1468.obj', 'FJ1467.obj', 'FJ1513.obj'],
+              'supraspinatus.glb': ['FJ1506.obj'],
+              'infraspinatus.glb': ['FJ1500.obj'],
+              'teres-minor.glb': ['FJ1508.obj'],
+              'subscapularis.glb': ['FJ1504.obj'],
               'brachial-artery.glb': ['FJ2271.obj'],
               'cephalic-vein.glb': ['FJ2272.obj'],
           }
@@ -110,7 +115,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No new asset changes to commit.'
           else
-            git commit -m 'assets: add shoulder-girdle and vessel GLBs'
+            git commit -m 'assets: add deltoid and rotator-cuff GLBs'
             git pull --rebase origin main
             git push origin HEAD:main
           fi
