@@ -97,7 +97,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0e13);
 
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-camera.position.set(4.2, 2.2, 7.2);
+camera.position.set(3.2, 1.4, 5.3);
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -106,8 +106,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0.4, 0);
-controls.minDistance = 3;
-controls.maxDistance = 12;
+controls.minDistance = 1.8;
+controls.maxDistance = 10;
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x20252e, 2.5));
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
@@ -197,7 +197,7 @@ register(capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0
 Object.entries(systemVisibility).forEach(([system, visible]) => { anatomicalGroups[system].visible = visible; });
 
 const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(2.8, 64),
+  new THREE.CircleGeometry(2.15, 64),
   new THREE.MeshStandardMaterial({ color: 0x141922, roughness: 1, transparent: true, opacity: 0.65 }),
 );
 floor.rotation.x = -Math.PI / 2;
@@ -214,6 +214,31 @@ function allMeshes() {
 
 function meshesForStructure(structureKey) {
   return allMeshes().filter((mesh) => mesh.userData.structureKey === structureKey && mesh.visible);
+}
+
+function fitCameraToAnatomy(padding = 1.22) {
+  const visibleMeshes = allMeshes().filter((mesh) => mesh.visible && mesh.parent?.visible !== false);
+  if (!visibleMeshes.length) return;
+
+  const box = new THREE.Box3();
+  visibleMeshes.forEach((mesh) => box.expandByObject(mesh));
+  if (box.isEmpty()) return;
+
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (!Number.isFinite(maxDim) || maxDim <= 0) return;
+
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 2.6);
+  controls.target.copy(center);
+  camera.position.set(center.x + distance * 0.72, center.y + distance * 0.18, center.z + distance);
+  camera.near = Math.max(distance / 100, 0.03);
+  camera.far = Math.max(distance * 20, 50);
+  camera.updateProjectionMatrix();
+  controls.update();
 }
 
 function applySystemOpacity(system, opacity) {
@@ -449,10 +474,11 @@ hydrateRealModels({
     });
     fallbackRegistry.get(structureKey)?.forEach((fallback) => { fallback.visible = false; });
     applySystemOpacity(item.system, systemOpacity[item.system]);
-    document.querySelector('#viewer-badge').textContent = `${realAssetCount} validated GLB structure${realAssetCount === 1 ? '' : 's'} loaded`;
+    document.querySelector('#viewer-badge').textContent = `${realAssetCount} real skeletal GLB${realAssetCount === 1 ? '' : 's'} · teaching overlays active`;
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
 }).then(() => {
+  fitCameraToAnatomy();
   if (realAssetCount === 0) {
     document.querySelector('#viewer-badge').textContent = 'Educational prototype · real GLBs load automatically when available';
   }
