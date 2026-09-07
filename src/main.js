@@ -12,7 +12,7 @@ app.innerHTML = `
   <div class="shell">
     <aside class="sidebar">
       <header>
-        <p class="eyebrow">ANATOMICA v0.1</p>
+        <p class="eyebrow">ANATOMICA v0.2</p>
         <h1>Upper Limb Explorer</h1>
         <p class="subtitle">Explore structure, function, pathways, and clinical relevance in an interactive 3D model.</p>
       </header>
@@ -24,6 +24,7 @@ app.innerHTML = `
           <button class="system" data-system="muscles">Muscles</button>
           <button class="system" data-system="nerves">Nerves</button>
           <button class="system" data-system="vessels">Vessels</button>
+          <button class="system" data-system="ligaments">Ligaments</button>
         </div>
       </section>
 
@@ -39,8 +40,10 @@ app.innerHTML = `
       <section class="tool-row" aria-label="Viewer tools">
         <button id="isolate-btn" class="tool">Isolate</button>
         <button id="restore-btn" class="tool">Restore</button>
+        <button id="reset-view-btn" class="tool">Reset view</button>
         <button id="rotator-btn" class="tool">Rotator cuff</button>
         <button id="forearm-btn" class="tool">Forearm</button>
+        <button id="hand-btn" class="tool">Wrist & hand</button>
         <button id="plexus-btn" class="tool">Brachial plexus</button>
         <button id="quiz-btn" class="tool accent">Quiz mode</button>
       </section>
@@ -51,12 +54,33 @@ app.innerHTML = `
             <span class="label">Compartment explorer</span>
             <strong>Forearm muscles</strong>
           </div>
-          <span class="status-pill">10 muscles</span>
+          <span class="status-pill">19 muscles</span>
         </div>
-        <p class="quiz-prompt">Compare the superficial flexor-pronator group with the extensor-supinator group.</p>
-        <div class="branch-list">
-          <button id="forearm-anterior" class="branch-button" type="button"><b>Anterior</b><span>Flexor · pronator</span></button>
-          <button id="forearm-posterior" class="branch-button" type="button"><b>Posterior</b><span>Extensor · supinator</span></button>
+        <p class="quiz-prompt">Move from superficial groups to the deep digital flexors and thumb extensors.</p>
+        <div class="branch-list study-grid">
+          <button id="forearm-anterior-superficial" class="branch-button" type="button"><b>Anterior superficial</b><span>Flexor · pronator</span></button>
+          <button id="forearm-anterior-deep" class="branch-button" type="button"><b>Anterior deep</b><span>FDS · FDP · FPL · PQ</span></button>
+          <button id="forearm-posterior-superficial" class="branch-button" type="button"><b>Posterior superficial</b><span>Wrist · finger extensors</span></button>
+          <button id="forearm-posterior-deep" class="branch-button" type="button"><b>Posterior deep</b><span>Thumb · index · supinator</span></button>
+        </div>
+      </section>
+
+      <section id="hand-card" class="learning-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Clinical region explorer</span>
+            <strong>Wrist & hand</strong>
+          </div>
+          <span class="status-pill">6 views</span>
+        </div>
+        <p id="hand-view-description" class="quiz-prompt">Study all 27 hand bones with the distal radius and ulna.</p>
+        <div class="branch-list study-grid">
+          <button id="hand-skeleton" class="branch-button" type="button"><b>Hand skeleton</b><span>Carpals · metacarpals · phalanges</span></button>
+          <button id="hand-carpal-tunnel" class="branch-button" type="button"><b>Carpal tunnel</b><span>Median nerve · flexors · retinaculum</span></button>
+          <button id="hand-snuffbox" class="branch-button" type="button"><b>Snuffbox</b><span>Scaphoid · thumb tendons · radial artery</span></button>
+          <button id="hand-tendons" class="branch-button" type="button"><b>Tendon testing</b><span>FDS · FDP · FPL · extensors</span></button>
+          <button id="hand-intrinsics" class="branch-button" type="button"><b>Intrinsic hand</b><span>Thenar · hypothenar · interossei</span></button>
+          <button id="hand-blood" class="branch-button" type="button"><b>Blood supply</b><span>Radial · ulnar · palmar arches</span></button>
         </div>
       </section>
 
@@ -103,7 +127,7 @@ app.innerHTML = `
 
     <main class="viewer-wrap">
       <canvas id="viewer" aria-label="Interactive 3D upper limb anatomy viewer"></canvas>
-      <div id="viewer-badge" class="viewer-badge">Educational prototype · checking validated assets</div>
+      <div id="viewer-badge" class="viewer-badge">Educational build · checking anatomical assets</div>
       <div id="mode-badge" class="mode-badge" hidden></div>
     </main>
   </div>
@@ -123,8 +147,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0.4, 0);
-controls.minDistance = 1.8;
-controls.maxDistance = 10;
+controls.minDistance = 1.2;
+controls.maxDistance = 12;
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x20252e, 2.5));
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
@@ -139,11 +163,12 @@ const anatomicalGroups = {
   muscles: new THREE.Group(),
   nerves: new THREE.Group(),
   vessels: new THREE.Group(),
+  ligaments: new THREE.Group(),
 };
 Object.values(anatomicalGroups).forEach((group) => scene.add(group));
 
-const systemOpacity = { skeleton: 1, muscles: 1, nerves: 1, vessels: 1 };
-const systemVisibility = { skeleton: true, muscles: false, nerves: false, vessels: false };
+const systemOpacity = { skeleton: 1, muscles: 1, nerves: 1, vessels: 1, ligaments: 1 };
+const systemVisibility = { skeleton: true, muscles: false, nerves: false, vessels: false, ligaments: false };
 const fallbackRegistry = new Map();
 const replacedStructures = new Set();
 let activeSystem = 'skeleton';
@@ -151,7 +176,9 @@ let selectedMesh = null;
 let plexusMode = false;
 let rotatorMode = false;
 let forearmMode = false;
-let forearmCompartment = 'anterior';
+let forearmCompartment = 'anterior-superficial';
+let handMode = false;
+let handView = 'skeleton';
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -249,10 +276,10 @@ function fitCameraToMeshes(meshes, padding = 1.22) {
   const maxDim = Math.max(size.x, size.y, size.z);
   if (!Number.isFinite(maxDim) || maxDim <= 0) return;
   const fov = THREE.MathUtils.degToRad(camera.fov);
-  const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 2.2);
+  const distance = Math.max(((maxDim * 0.5) / Math.tan(fov * 0.5)) * padding, 1.45);
   controls.target.copy(center);
   camera.position.set(center.x + distance * 0.72, center.y + distance * 0.18, center.z + distance);
-  camera.near = Math.max(distance / 100, 0.03);
+  camera.near = Math.max(distance / 120, 0.02);
   camera.far = Math.max(distance * 20, 50);
   camera.updateProjectionMatrix();
   controls.update();
@@ -263,7 +290,9 @@ function fitCameraToAnatomy(padding = 1.22) {
 }
 
 function applySystemOpacity(system, opacity) {
-  anatomicalGroups[system].traverse((object) => {
+  const group = anatomicalGroups[system];
+  if (!group) return;
+  group.traverse((object) => {
     if (!object.isMesh || !object.material) return;
     object.material.transparent = opacity < 1;
     object.material.opacity = opacity;
@@ -319,6 +348,7 @@ function syncSystemButton(system) {
 }
 
 function setSystemVisibility(system, visible, persist = true) {
+  if (!anatomicalGroups[system]) return;
   if (persist) systemVisibility[system] = visible;
   anatomicalGroups[system].visible = visible;
   if (persist) syncSystemButton(system);
@@ -353,6 +383,11 @@ function deactivateStudyModes(except = '') {
     forearmMode = false;
     document.querySelector('#forearm-btn').classList.remove('active');
     document.querySelector('#forearm-card').hidden = true;
+  }
+  if (except !== 'hand') {
+    handMode = false;
+    document.querySelector('#hand-btn').classList.remove('active');
+    document.querySelector('#hand-card').hidden = true;
   }
   if (except !== 'plexus') {
     plexusMode = false;
@@ -406,6 +441,7 @@ document.querySelector('#isolate-btn').addEventListener('click', () => {
   clearHighlight();
   highlightStructure(key);
   setModeBadge(`Isolated · ${upperLimbStructures[key]?.name ?? key}`);
+  fitCameraToMeshes(meshesForStructure(key), 1.35);
 });
 
 document.querySelector('#restore-btn').addEventListener('click', () => {
@@ -414,6 +450,8 @@ document.querySelector('#restore-btn').addEventListener('click', () => {
   setModeBadge('');
   fitCameraToAnatomy();
 });
+
+document.querySelector('#reset-view-btn').addEventListener('click', () => fitCameraToAnatomy());
 
 const rotatorKeys = ['supraspinatus', 'infraspinatus', 'teresMinor', 'subscapularis'];
 const shoulderSkeletonKeys = ['humerus', 'scapula', 'clavicle'];
@@ -430,10 +468,12 @@ document.querySelector('#rotator-btn').addEventListener('click', () => {
     setSystemVisibility('muscles', true, false);
     setSystemVisibility('nerves', false, false);
     setSystemVisibility('vessels', false, false);
+    setSystemVisibility('ligaments', false, false);
     allMeshes().forEach((mesh) => {
       const key = mesh.userData.structureKey;
       if (mesh.userData.system === 'skeleton') mesh.visible = shoulderSkeletonKeys.includes(key);
-      if (mesh.userData.system === 'muscles') mesh.visible = shoulderStudyKeys.includes(key);
+      else if (mesh.userData.system === 'muscles') mesh.visible = shoulderStudyKeys.includes(key);
+      else mesh.visible = false;
     });
     clearHighlight();
     rotatorKeys.forEach((key) => highlightStructure(key, 0x7f303f, 0.6));
@@ -447,32 +487,54 @@ document.querySelector('#rotator-btn').addEventListener('click', () => {
 });
 
 const forearmSkeletonKeys = ['humerus', 'radius', 'ulna'];
-const anteriorForearmKeys = ['pronatorTeres', 'flexorCarpiRadialis', 'palmarisLongus', 'flexorCarpiUlnaris', 'brachioradialis'];
-const posteriorForearmKeys = ['extensorCarpiRadialisLongus', 'extensorCarpiRadialisBrevis', 'extensorDigitorum', 'extensorCarpiUlnaris', 'supinator'];
-const allForearmKeys = [...anteriorForearmKeys, ...posteriorForearmKeys];
+const forearmViews = {
+  'anterior-superficial': {
+    label: 'Anterior · superficial',
+    color: 0x7d3d2e,
+    keys: ['pronatorTeres', 'flexorCarpiRadialis', 'palmarisLongus', 'flexorCarpiUlnaris'],
+  },
+  'anterior-deep': {
+    label: 'Anterior · deep',
+    color: 0x8b4732,
+    keys: ['flexorDigitorumSuperficialis', 'flexorDigitorumProfundus', 'flexorPollicisLongus', 'pronatorQuadratus'],
+  },
+  'posterior-superficial': {
+    label: 'Posterior · superficial',
+    color: 0x69364d,
+    keys: ['brachioradialis', 'extensorCarpiRadialisLongus', 'extensorCarpiRadialisBrevis', 'extensorDigitorum', 'extensorDigitiMinimi', 'extensorCarpiUlnaris'],
+  },
+  'posterior-deep': {
+    label: 'Posterior · deep',
+    color: 0x5d3b68,
+    keys: ['supinator', 'abductorPollicisLongus', 'extensorPollicisBrevis', 'extensorPollicisLongus', 'extensorIndicis'],
+  },
+};
+const allForearmKeys = Object.values(forearmViews).flatMap((view) => view.keys);
 
 function renderForearmCompartment(compartment) {
+  const view = forearmViews[compartment] ?? forearmViews['anterior-superficial'];
   forearmCompartment = compartment;
-  const activeKeys = compartment === 'anterior' ? anteriorForearmKeys : posteriorForearmKeys;
-  document.querySelector('#forearm-anterior').classList.toggle('active', compartment === 'anterior');
-  document.querySelector('#forearm-posterior').classList.toggle('active', compartment === 'posterior');
+  Object.keys(forearmViews).forEach((key) => {
+    document.querySelector(`#forearm-${key}`)?.classList.toggle('active', key === compartment);
+  });
 
   setSystemVisibility('skeleton', true, false);
   setSystemVisibility('muscles', true, false);
   setSystemVisibility('nerves', false, false);
   setSystemVisibility('vessels', false, false);
+  setSystemVisibility('ligaments', false, false);
 
   allMeshes().forEach((mesh) => {
     const key = mesh.userData.structureKey;
     if (mesh.userData.system === 'skeleton') mesh.visible = forearmSkeletonKeys.includes(key);
-    else if (mesh.userData.system === 'muscles') mesh.visible = activeKeys.includes(key);
+    else if (mesh.userData.system === 'muscles') mesh.visible = view.keys.includes(key);
     else mesh.visible = false;
   });
 
   clearHighlight();
-  activeKeys.forEach((key) => highlightStructure(key, compartment === 'anterior' ? 0x7d3d2e : 0x69364d, 0.55));
-  setModeBadge(`Forearm · ${compartment === 'anterior' ? 'Flexor–Pronator' : 'Extensor–Supinator'}`);
-  fitCameraToMeshes(allMeshes().filter((mesh) => [...forearmSkeletonKeys, ...activeKeys].includes(mesh.userData.structureKey)), 1.3);
+  view.keys.forEach((key) => highlightStructure(key, view.color, 0.55));
+  setModeBadge(`Forearm · ${view.label}`);
+  fitCameraToMeshes(allMeshes().filter((mesh) => [...forearmSkeletonKeys, ...view.keys].includes(mesh.userData.structureKey)), 1.25);
 }
 
 document.querySelector('#forearm-btn').addEventListener('click', () => {
@@ -489,8 +551,120 @@ document.querySelector('#forearm-btn').addEventListener('click', () => {
   }
 });
 
-document.querySelector('#forearm-anterior').addEventListener('click', () => renderForearmCompartment('anterior'));
-document.querySelector('#forearm-posterior').addEventListener('click', () => renderForearmCompartment('posterior'));
+Object.keys(forearmViews).forEach((key) => {
+  document.querySelector(`#forearm-${key}`)?.addEventListener('click', () => renderForearmCompartment(key));
+});
+
+const carpalKeys = ['scaphoid', 'lunate', 'triquetral', 'pisiform', 'trapezium', 'trapezoid', 'capitate', 'hamate'];
+const metacarpalKeys = ['metacarpal1', 'metacarpal2', 'metacarpal3', 'metacarpal4', 'metacarpal5'];
+const phalanxKeys = [
+  'proximalPhalanxThumb', 'proximalPhalanxIndex', 'proximalPhalanxMiddle', 'proximalPhalanxRing', 'proximalPhalanxLittle',
+  'middlePhalanxIndex', 'middlePhalanxMiddle', 'middlePhalanxRing', 'middlePhalanxLittle',
+  'distalPhalanxThumb', 'distalPhalanxIndex', 'distalPhalanxMiddle', 'distalPhalanxRing', 'distalPhalanxLittle',
+];
+const handBoneKeys = [...carpalKeys, ...metacarpalKeys, ...phalanxKeys];
+const handSkeletonContextKeys = ['radius', 'ulna', ...handBoneKeys];
+const carpalTunnelKeys = ['medianNerve', 'flexorRetinaculum', 'flexorDigitorumSuperficialis', 'flexorDigitorumProfundus', 'flexorPollicisLongus'];
+const snuffboxKeys = ['scaphoid', 'trapezium', 'abductorPollicisLongus', 'extensorPollicisBrevis', 'extensorPollicisLongus', 'radialArtery'];
+const tendonTestKeys = ['flexorDigitorumSuperficialis', 'flexorDigitorumProfundus', 'flexorPollicisLongus', 'extensorDigitorum', 'extensorDigitiMinimi', 'extensorIndicis', 'abductorPollicisLongus', 'extensorPollicisBrevis', 'extensorPollicisLongus'];
+const intrinsicHandKeys = ['abductorPollicisBrevis', 'flexorPollicisBrevis', 'opponensPollicis', 'adductorPollicis', 'abductorDigitiMinimi', 'flexorDigitiMinimiBrevis', 'opponensDigitiMinimi', 'lumbricals', 'palmarInterossei', 'dorsalInterossei'];
+const handBloodKeys = ['radialArtery', 'ulnarArtery', 'superficialPalmarArch', 'deepPalmarArch'];
+const allHandKeys = [...new Set([...handSkeletonContextKeys, ...carpalTunnelKeys, ...snuffboxKeys, ...tendonTestKeys, ...intrinsicHandKeys, ...handBloodKeys])];
+
+const handViews = {
+  skeleton: {
+    label: 'Hand Skeleton',
+    description: 'Study all 27 hand bones with the distal radius and ulna.',
+    skeleton: handSkeletonContextKeys,
+    muscles: [], nerves: [], vessels: [], ligaments: [],
+    highlight: carpalKeys,
+  },
+  'carpal-tunnel': {
+    label: 'Carpal Tunnel',
+    description: 'See the median nerve and long flexors deep to the flexor retinaculum across the carpal arch.',
+    skeleton: ['radius', 'ulna', ...carpalKeys, 'metacarpal1', 'metacarpal5'],
+    muscles: ['flexorDigitorumSuperficialis', 'flexorDigitorumProfundus', 'flexorPollicisLongus'],
+    nerves: ['medianNerve'], vessels: [], ligaments: ['flexorRetinaculum'],
+    highlight: ['medianNerve', 'flexorRetinaculum'],
+  },
+  snuffbox: {
+    label: 'Anatomical Snuffbox',
+    description: 'Trace APL/EPB laterally and EPL medially over the scaphoid with the radial artery in the floor.',
+    skeleton: ['radius', 'scaphoid', 'trapezium', 'metacarpal1'],
+    muscles: ['abductorPollicisLongus', 'extensorPollicisBrevis', 'extensorPollicisLongus'],
+    nerves: [], vessels: ['radialArtery'], ligaments: [],
+    highlight: snuffboxKeys,
+  },
+  tendons: {
+    label: 'Tendon Testing',
+    description: 'Compare digital flexors, finger extensors, and the three major extrinsic thumb tendons used in focused hand examination.',
+    skeleton: ['radius', 'ulna', ...handBoneKeys],
+    muscles: tendonTestKeys, nerves: [], vessels: [], ligaments: [],
+    highlight: tendonTestKeys,
+  },
+  intrinsics: {
+    label: 'Intrinsic Hand',
+    description: 'Study thenar, hypothenar, lumbrical, and interosseous groups with their median-versus-ulnar motor pattern.',
+    skeleton: handBoneKeys,
+    muscles: intrinsicHandKeys, nerves: ['medianNerve', 'ulnarNerve'], vessels: [], ligaments: [],
+    highlight: intrinsicHandKeys,
+  },
+  blood: {
+    label: 'Hand Blood Supply',
+    description: 'Follow radial and ulnar inflow into the deep and superficial palmar arterial arches.',
+    skeleton: ['radius', 'ulna', ...handBoneKeys],
+    muscles: [], nerves: [], vessels: handBloodKeys, ligaments: [],
+    highlight: handBloodKeys,
+  },
+};
+
+function handVisibleSet(viewName) {
+  const view = handViews[viewName] ?? handViews.skeleton;
+  return new Set([...view.skeleton, ...view.muscles, ...view.nerves, ...view.vessels, ...view.ligaments]);
+}
+
+function renderHandView(viewName) {
+  const view = handViews[viewName] ?? handViews.skeleton;
+  handView = viewName;
+  Object.keys(handViews).forEach((key) => {
+    document.querySelector(`#hand-${key}`)?.classList.toggle('active', key === viewName);
+  });
+  document.querySelector('#hand-view-description').textContent = view.description;
+
+  const enabledSystems = {
+    skeleton: view.skeleton.length > 0,
+    muscles: view.muscles.length > 0,
+    nerves: view.nerves.length > 0,
+    vessels: view.vessels.length > 0,
+    ligaments: view.ligaments.length > 0,
+  };
+  Object.entries(enabledSystems).forEach(([system, visible]) => setSystemVisibility(system, visible, false));
+
+  const visible = handVisibleSet(viewName);
+  allMeshes().forEach((mesh) => { mesh.visible = visible.has(mesh.userData.structureKey); });
+  clearHighlight();
+  view.highlight.forEach((key) => highlightStructure(key, 0x6b587e, 0.65));
+  setModeBadge(`Wrist & Hand · ${view.label}`);
+  fitCameraToMeshes(allMeshes().filter((mesh) => visible.has(mesh.userData.structureKey)), viewName === 'skeleton' ? 1.18 : 1.28);
+}
+
+document.querySelector('#hand-btn').addEventListener('click', () => {
+  const nextState = !handMode;
+  deactivateStudyModes('hand');
+  handMode = nextState;
+  document.querySelector('#hand-btn').classList.toggle('active', handMode);
+  document.querySelector('#hand-card').hidden = !handMode;
+  if (handMode) renderHandView(handView);
+  else {
+    restoreAll();
+    setModeBadge('');
+    fitCameraToAnatomy();
+  }
+});
+
+Object.keys(handViews).forEach((key) => {
+  document.querySelector(`#hand-${key}`)?.addEventListener('click', () => renderHandView(key));
+});
 
 const branchContainer = document.querySelector('#plexus-branches');
 brachialPlexus.terminalBranches.forEach((branch) => {
@@ -574,6 +748,7 @@ document.querySelector('#quiz-btn').addEventListener('click', () => {
     Object.keys(anatomicalGroups).forEach((system) => setSystemVisibility(system, true));
     setModeBadge('Quiz Mode');
     renderQuiz();
+    fitCameraToAnatomy(1.18);
   } else {
     clearHighlight();
     if (selectedMesh) highlightStructure(selectedMesh.userData.structureKey);
@@ -594,23 +769,28 @@ hydrateRealModels({
       mesh.userData.system = item.system;
       mesh.userData.isRealAnatomy = true;
       if (forearmMode && allForearmKeys.includes(structureKey)) {
-        const activeKeys = forearmCompartment === 'anterior' ? anteriorForearmKeys : posteriorForearmKeys;
-        mesh.visible = activeKeys.includes(structureKey);
+        mesh.visible = forearmViews[forearmCompartment]?.keys.includes(structureKey) ?? false;
+      } else if (handMode && allHandKeys.includes(structureKey)) {
+        mesh.visible = handVisibleSet(handView).has(structureKey);
+      } else {
+        mesh.visible = systemVisibility[item.system] ?? false;
       }
     });
     fallbackRegistry.get(structureKey)?.forEach((fallback) => { fallback.visible = false; });
-    applySystemOpacity(item.system, systemOpacity[item.system]);
-    document.querySelector('#viewer-badge').textContent = `${realAssetCount} real anatomical GLB${realAssetCount === 1 ? '' : 's'} · teaching overlays active`;
+    applySystemOpacity(item.system, systemOpacity[item.system] ?? 1);
+    document.querySelector('#viewer-badge').textContent = `${realAssetCount} real anatomical GLB${realAssetCount === 1 ? '' : 's'} · clinical teaching overlays active`;
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
 }).then(() => {
-  fitCameraToAnatomy();
+  if (handMode) renderHandView(handView);
+  else if (forearmMode) renderForearmCompartment(forearmCompartment);
+  else fitCameraToAnatomy();
   if (realAssetCount === 0) {
-    document.querySelector('#viewer-badge').textContent = 'Educational prototype · real GLBs load automatically when available';
+    document.querySelector('#viewer-badge').textContent = 'Educational build · real GLBs load automatically when available';
   }
 }).catch((error) => {
   console.error('[Anatomica] Asset hydration failed', error);
-  document.querySelector('#viewer-badge').textContent = 'Educational prototype · asset fallback active';
+  document.querySelector('#viewer-badge').textContent = 'Educational build · asset fallback active';
 });
 
 function resize() {
