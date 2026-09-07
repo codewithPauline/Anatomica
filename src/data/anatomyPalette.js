@@ -27,6 +27,17 @@ export const ANATOMY_COLORS = {
     coracobrachialis: 0xdf7665,
     teresMajor: 0x9f4657,
 
+    pronatorTeres: 0xd86c54,
+    flexorCarpiRadialis: 0xce604e,
+    palmarisLongus: 0xe07a62,
+    flexorCarpiUlnaris: 0xb94f46,
+    brachioradialis: 0xd97a69,
+    extensorCarpiRadialisLongus: 0xb65b72,
+    extensorCarpiRadialisBrevis: 0xa95068,
+    extensorDigitorum: 0x98445f,
+    extensorCarpiUlnaris: 0x873d57,
+    supinator: 0xc26a7f,
+
     brachialArtery: 0xd9343a,
     cephalicVein: 0x4779df,
 
