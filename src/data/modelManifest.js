@@ -40,6 +40,7 @@ export const modelManifest = {
       path: '/models/upper-limb/biceps-brachii.glb',
       representationIds: ['BP5558', 'BP5566'],
       fma: ['FMA37684', 'FMA37686'],
+      atomicMeshes: ['FJ1512.obj', 'FJ1478.obj'],
       sourceLabels: ['short head of right biceps brachii', 'long head of right biceps brachii'],
       system: 'muscles',
       status: 'source-identified',
@@ -48,6 +49,7 @@ export const modelManifest = {
       path: '/models/upper-limb/triceps-brachii.glb',
       representationIds: ['BP5562', 'BP5550', 'BP5564'],
       fma: ['FMA37695', 'FMA37697', 'FMA37699'],
+      atomicMeshes: ['FJ1480.obj', 'FJ1477.obj', 'FJ1479.obj'],
       sourceLabels: [
         'medial head of right triceps brachii',
         'lateral head of right triceps brachii',
