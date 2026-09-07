@@ -23,6 +23,22 @@ export const upperLimbStructures = {
     description: 'The medial forearm bone and an important stabilizer of the elbow.',
     clinical: 'The olecranon forms the palpable point of the elbow and participates in elbow extension mechanics.',
   },
+  scapula: {
+    id: 'scapula',
+    name: 'Scapula',
+    system: 'skeletal',
+    region: 'Shoulder girdle',
+    description: 'A flat triangular bone of the posterior shoulder girdle that provides the glenoid socket and numerous muscle attachment sites.',
+    clinical: 'The glenoid cavity articulates with the humeral head. Scapular position and motion are essential to normal shoulder elevation and the scapulohumeral rhythm.',
+  },
+  clavicle: {
+    id: 'clavicle',
+    name: 'Clavicle',
+    system: 'skeletal',
+    region: 'Shoulder girdle',
+    description: 'An S-shaped strut connecting the upper limb to the axial skeleton through the sternoclavicular and acromioclavicular joints.',
+    clinical: 'Clavicular fractures are common, especially near the middle third. Nearby subclavian vessels and the brachial plexus are important deep relationships.',
+  },
   bicepsBrachii: {
     id: 'biceps-brachii',
     name: 'Biceps brachii',
