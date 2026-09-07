@@ -18,6 +18,11 @@ export const ANATOMY_COLORS = {
 
     bicepsBrachii: 0xd8666d,
     tricepsBrachii: 0xb84e58,
+    deltoid: 0xd06a78,
+    supraspinatus: 0xe88472,
+    infraspinatus: 0xb95d6a,
+    teresMinor: 0xc97562,
+    subscapularis: 0xa94f5f,
 
     brachialArtery: 0xd9343a,
     cephalicVein: 0x4779df,
