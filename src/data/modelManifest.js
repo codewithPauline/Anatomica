@@ -55,6 +55,8 @@ export const modelManifest = {
     medianNerve: { path: '/models/upper-limb/median-nerve.glb', system: 'nerves', status: 'pending-source' },
     musculocutaneousNerve: { path: '/models/upper-limb/musculocutaneous-nerve.glb', system: 'nerves', status: 'pending-source' },
     radialNerve: { path: '/models/upper-limb/radial-nerve.glb', system: 'nerves', status: 'pending-source' },
+    ulnarNerve: { path: '/models/upper-limb/ulnar-nerve.glb', system: 'nerves', status: 'pending-source' },
+    axillaryNerve: { path: '/models/upper-limb/axillary-nerve.glb', system: 'nerves', status: 'pending-source' },
     brachialArtery: {
       path: '/models/upper-limb/brachial-artery.glb',
       sourceObjects: ['BP6020.obj'],
