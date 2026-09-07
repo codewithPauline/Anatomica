@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { upperLimbStructures } from './data/upperLimb.js';
 import './style.css';
 
 const app = document.querySelector('#app');
@@ -10,28 +11,40 @@ app.innerHTML = `
       <div>
         <p class="eyebrow">ANATOMICA v0.1</p>
         <h1>Upper Limb Explorer</h1>
-        <p class="subtitle">Explore anatomy by system, isolate structures, and connect form to function.</p>
+        <p class="subtitle">Explore structure, function, pathways, and clinical relevance in an interactive 3D model.</p>
       </div>
 
-      <div class="system-list" aria-label="Anatomical systems">
-        <button class="system active" data-system="skeleton">Skeleton</button>
-        <button class="system" data-system="muscles">Muscles</button>
-        <button class="system" data-system="nerves">Nerves</button>
-        <button class="system" data-system="vessels">Vessels</button>
+      <div>
+        <span class="section-label">Systems</span>
+        <div class="system-list" aria-label="Anatomical systems">
+          <button class="system active" data-system="skeleton">Skeleton</button>
+          <button class="system" data-system="muscles">Muscles</button>
+          <button class="system" data-system="nerves">Nerves</button>
+          <button class="system" data-system="vessels">Vessels</button>
+        </div>
       </div>
 
-      <div class="info-card">
+      <div class="tool-row" aria-label="Viewer tools">
+        <button id="isolate-btn" class="tool">Isolate</button>
+        <button id="restore-btn" class="tool">Restore</button>
+        <button id="plexus-btn" class="tool accent">Brachial plexus</button>
+      </div>
+
+      <div class="info-card" aria-live="polite">
         <span class="label">Selected structure</span>
         <strong id="selected-name">Humerus</strong>
-        <p id="selected-description">A long bone of the upper arm connecting the shoulder to the elbow.</p>
+        <p id="selected-description"></p>
+        <div id="details" class="details"></div>
+        <div id="clinical" class="clinical"></div>
       </div>
 
-      <p class="hint">Drag to rotate · Scroll to zoom · Right-drag to pan</p>
+      <p class="hint">Drag to rotate · Scroll to zoom · Right-drag to pan · Click a structure to study it</p>
     </aside>
 
     <main class="viewer-wrap">
-      <canvas id="viewer" aria-label="Interactive 3D anatomy viewer"></canvas>
-      <div class="viewer-badge">Prototype anatomy model</div>
+      <canvas id="viewer" aria-label="Interactive 3D upper limb anatomy viewer"></canvas>
+      <div class="viewer-badge">Educational prototype · simplified geometry</div>
+      <div id="mode-badge" class="mode-badge" hidden>Brachial Plexus Mode</div>
     </main>
   </div>
 `;
@@ -57,7 +70,6 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x20252e, 2.5));
 const keyLight = new THREE.DirectionalLight(0xffffff, 3.5);
 keyLight.position.set(4, 5, 5);
 scene.add(keyLight);
-
 const fillLight = new THREE.DirectionalLight(0x9db9ff, 1.3);
 fillLight.position.set(-4, 1, 2);
 scene.add(fillLight);
@@ -68,7 +80,6 @@ const anatomicalGroups = {
   nerves: new THREE.Group(),
   vessels: new THREE.Group(),
 };
-
 Object.values(anatomicalGroups).forEach((group) => scene.add(group));
 
 function capsuleBetween(start, end, radius, material) {
@@ -81,63 +92,50 @@ function capsuleBetween(start, end, radius, material) {
   return mesh;
 }
 
-const bone = new THREE.MeshStandardMaterial({ color: 0xe9ddc4, roughness: 0.72 });
-const muscle = new THREE.MeshStandardMaterial({ color: 0x9f4a4a, roughness: 0.68 });
-const nerve = new THREE.MeshStandardMaterial({ color: 0xe7c94b, emissive: 0x3a2d00, emissiveIntensity: 0.18 });
-const artery = new THREE.MeshStandardMaterial({ color: 0xa83838, roughness: 0.55 });
-const vein = new THREE.MeshStandardMaterial({ color: 0x3d5e91, roughness: 0.55 });
+const materials = {
+  bone: new THREE.MeshStandardMaterial({ color: 0xe9ddc4, roughness: 0.72 }),
+  muscle: new THREE.MeshStandardMaterial({ color: 0x9f4a4a, roughness: 0.68 }),
+  nerve: new THREE.MeshStandardMaterial({ color: 0xe7c94b, emissive: 0x3a2d00, emissiveIntensity: 0.18 }),
+  artery: new THREE.MeshStandardMaterial({ color: 0xa83838, roughness: 0.55 }),
+  vein: new THREE.MeshStandardMaterial({ color: 0x3d5e91, roughness: 0.55 }),
+};
 
-// Simplified upper-limb forms; these are placeholders until validated anatomical GLB assets are added.
 const shoulder = new THREE.Vector3(0, 2.2, 0);
 const elbow = new THREE.Vector3(0.25, 0.1, 0.05);
-const wrist = new THREE.Vector3(0.42, -1.9, 0.08);
 
-const humerus = capsuleBetween(shoulder, elbow, 0.22, bone);
-humerus.userData = { name: 'Humerus', description: 'A long bone of the upper arm connecting the shoulder to the elbow.' };
-anatomicalGroups.skeleton.add(humerus);
+function register(mesh, structureKey, groupName) {
+  mesh.userData.structureKey = structureKey;
+  mesh.userData.baseEmissive = mesh.material.emissive?.getHex?.() ?? 0x000000;
+  mesh.userData.baseEmissiveIntensity = mesh.material.emissiveIntensity ?? 0;
+  anatomicalGroups[groupName].add(mesh);
+  return mesh;
+}
 
-const radius = capsuleBetween(new THREE.Vector3(0.15, 0.05, 0.08), new THREE.Vector3(0.62, -1.85, 0.22), 0.11, bone);
-radius.userData = { name: 'Radius', description: 'The lateral forearm bone in anatomical position, aligned with the thumb.' };
-anatomicalGroups.skeleton.add(radius);
-
-const ulna = capsuleBetween(new THREE.Vector3(0.34, 0.05, -0.03), new THREE.Vector3(0.23, -1.88, -0.12), 0.12, bone);
-ulna.userData = { name: 'Ulna', description: 'The medial forearm bone and major stabilizing bone of the elbow joint.' };
-anatomicalGroups.skeleton.add(ulna);
-
-const humeralHead = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 20), bone);
+const humerus = register(capsuleBetween(shoulder, elbow, 0.22, materials.bone), 'humerus', 'skeleton');
+const radius = register(capsuleBetween(new THREE.Vector3(0.15, 0.05, 0.08), new THREE.Vector3(0.62, -1.85, 0.22), 0.11, materials.bone), 'radius', 'skeleton');
+const ulna = register(capsuleBetween(new THREE.Vector3(0.34, 0.05, -0.03), new THREE.Vector3(0.23, -1.88, -0.12), 0.12, materials.bone), 'ulna', 'skeleton');
+const humeralHead = new THREE.Mesh(new THREE.SphereGeometry(0.34, 32, 20), materials.bone);
 humeralHead.position.copy(shoulder);
+humeralHead.userData.structureKey = 'humerus';
 anatomicalGroups.skeleton.add(humeralHead);
 
-const biceps = capsuleBetween(new THREE.Vector3(-0.18, 1.88, 0.32), new THREE.Vector3(0.12, 0.28, 0.34), 0.3, muscle);
+const biceps = register(capsuleBetween(new THREE.Vector3(-0.18, 1.88, 0.32), new THREE.Vector3(0.12, 0.28, 0.34), 0.3, materials.muscle), 'bicepsBrachii', 'muscles');
 biceps.scale.set(0.82, 1, 0.72);
-biceps.userData = { name: 'Biceps brachii', description: 'Flexes the elbow and powerfully supinates the forearm.' };
-anatomicalGroups.muscles.add(biceps);
-
-const triceps = capsuleBetween(new THREE.Vector3(0.18, 1.95, -0.31), new THREE.Vector3(0.24, 0.23, -0.25), 0.28, muscle);
+const triceps = register(capsuleBetween(new THREE.Vector3(0.18, 1.95, -0.31), new THREE.Vector3(0.24, 0.23, -0.25), 0.28, materials.muscle), 'tricepsBrachii', 'muscles');
 triceps.scale.set(0.78, 1, 0.7);
-triceps.userData = { name: 'Triceps brachii', description: 'The principal extensor of the elbow joint.' };
-anatomicalGroups.muscles.add(triceps);
 
-const medianNerve = capsuleBetween(new THREE.Vector3(-0.05, 2.0, 0.43), new THREE.Vector3(0.42, -1.75, 0.42), 0.045, nerve);
-medianNerve.userData = { name: 'Median nerve', description: 'A major terminal branch of the brachial plexus supplying much of the anterior forearm and hand.' };
-anatomicalGroups.nerves.add(medianNerve);
+const medianNerve = register(capsuleBetween(new THREE.Vector3(-0.05, 2.0, 0.43), new THREE.Vector3(0.42, -1.75, 0.42), 0.045, materials.nerve), 'medianNerve', 'nerves');
+const musculocutaneousNerve = register(capsuleBetween(new THREE.Vector3(-0.28, 2.05, 0.34), new THREE.Vector3(-0.08, 0.25, 0.36), 0.038, materials.nerve), 'musculocutaneousNerve', 'nerves');
+const radialNerve = register(capsuleBetween(new THREE.Vector3(0.2, 1.9, -0.4), new THREE.Vector3(0.48, -1.65, -0.28), 0.04, materials.nerve), 'radialNerve', 'nerves');
 
-const brachialArtery = capsuleBetween(new THREE.Vector3(0.08, 1.85, 0.48), new THREE.Vector3(0.28, 0.12, 0.48), 0.055, artery);
-brachialArtery.userData = { name: 'Brachial artery', description: 'The principal arterial supply of the arm, continuing from the axillary artery.' };
-anatomicalGroups.vessels.add(brachialArtery);
-
-const cephalicVein = capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0.62, -1.62, 0.45), 0.05, vein);
-cephalicVein.userData = { name: 'Cephalic vein', description: 'A superficial vein running along the lateral aspect of the upper limb.' };
-anatomicalGroups.vessels.add(cephalicVein);
+const brachialArtery = register(capsuleBetween(new THREE.Vector3(0.08, 1.85, 0.48), new THREE.Vector3(0.28, 0.12, 0.48), 0.055, materials.artery), 'brachialArtery', 'vessels');
+const cephalicVein = register(capsuleBetween(new THREE.Vector3(-0.34, 1.72, 0.5), new THREE.Vector3(0.62, -1.62, 0.45), 0.05, materials.vein), 'cephalicVein', 'vessels');
 
 anatomicalGroups.muscles.visible = false;
 anatomicalGroups.nerves.visible = false;
 anatomicalGroups.vessels.visible = false;
 
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(2.8, 64),
-  new THREE.MeshStandardMaterial({ color: 0x141922, roughness: 1, transparent: true, opacity: 0.65 }),
-);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(2.8, 64), new THREE.MeshStandardMaterial({ color: 0x141922, roughness: 1, transparent: true, opacity: 0.65 }));
 floor.rotation.x = -Math.PI / 2;
 floor.position.y = -2.4;
 scene.add(floor);
@@ -145,12 +143,55 @@ scene.add(floor);
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 let selectedMesh = humerus;
+let plexusMode = false;
+
+function allMeshes() {
+  return Object.values(anatomicalGroups).flatMap((group) => group.children).filter((obj) => obj.isMesh);
+}
+
+function clearHighlight() {
+  allMeshes().forEach((mesh) => {
+    if (!mesh.material?.emissive) return;
+    mesh.material.emissive.setHex(mesh.userData.baseEmissive ?? 0x000000);
+    mesh.material.emissiveIntensity = mesh.userData.baseEmissiveIntensity ?? 0;
+  });
+}
+
+function renderInfo(structureKey) {
+  const data = upperLimbStructures[structureKey];
+  if (!data) return;
+  document.querySelector('#selected-name').textContent = data.name;
+  document.querySelector('#selected-description').textContent = data.description;
+
+  const details = [];
+  if (data.region) details.push(`<div><span>Region</span><b>${data.region}</b></div>`);
+  if (data.roots) details.push(`<div><span>Roots</span><b>${data.roots.join(' · ')}</b></div>`);
+  if (data.innervation) details.push(`<div><span>Innervation</span><b>${data.innervation}</b></div>`);
+  if (data.actions) details.push(`<div><span>Action</span><b>${data.actions.join(', ')}</b></div>`);
+  document.querySelector('#details').innerHTML = details.join('');
+  document.querySelector('#clinical').innerHTML = data.clinical ? `<span>Clinical link</span><p>${data.clinical}</p>` : '';
+}
 
 function setSelected(mesh) {
-  if (!mesh?.userData?.name) return;
+  const structureKey = mesh?.userData?.structureKey;
+  if (!structureKey) return;
   selectedMesh = mesh;
-  document.querySelector('#selected-name').textContent = mesh.userData.name;
-  document.querySelector('#selected-description').textContent = mesh.userData.description;
+  clearHighlight();
+  if (mesh.material?.emissive) {
+    mesh.material.emissive.setHex(0x5577aa);
+    mesh.material.emissiveIntensity = 0.55;
+  }
+  renderInfo(structureKey);
+}
+
+function restoreAll() {
+  Object.entries(anatomicalGroups).forEach(([name, group]) => {
+    const button = document.querySelector(`[data-system="${name}"]`);
+    group.visible = button?.classList.contains('active') ?? true;
+    group.children.forEach((child) => { child.visible = true; });
+  });
+  clearHighlight();
+  setSelected(selectedMesh);
 }
 
 renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -158,7 +199,7 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  const hits = raycaster.intersectObjects(Object.values(anatomicalGroups).flatMap((group) => group.children), false);
+  const hits = raycaster.intersectObjects(allMeshes().filter((mesh) => mesh.visible && mesh.parent.visible), false);
   if (hits[0]) setSelected(hits[0].object);
 });
 
@@ -170,6 +211,36 @@ document.querySelectorAll('.system').forEach((button) => {
     button.classList.toggle('active', show);
   });
 });
+
+document.querySelector('#isolate-btn').addEventListener('click', () => {
+  if (!selectedMesh) return;
+  const key = selectedMesh.userData.structureKey;
+  allMeshes().forEach((mesh) => { mesh.visible = mesh.userData.structureKey === key; });
+  Object.values(anatomicalGroups).forEach((group) => { group.visible = true; });
+});
+
+document.querySelector('#restore-btn').addEventListener('click', restoreAll);
+
+document.querySelector('#plexus-btn').addEventListener('click', () => {
+  plexusMode = !plexusMode;
+  document.querySelector('#mode-badge').hidden = !plexusMode;
+  document.querySelector('#plexus-btn').classList.toggle('active', plexusMode);
+  if (plexusMode) {
+    anatomicalGroups.nerves.visible = true;
+    document.querySelector('[data-system="nerves"]').classList.add('active');
+    [medianNerve, musculocutaneousNerve, radialNerve].forEach((mesh) => {
+      mesh.material.emissive.setHex(0x6a5200);
+      mesh.material.emissiveIntensity = 0.7;
+    });
+    setSelected(medianNerve);
+  } else {
+    clearHighlight();
+    setSelected(selectedMesh);
+  }
+});
+
+renderInfo('humerus');
+setSelected(humerus);
 
 function resize() {
   const parent = canvas.parentElement;
@@ -189,5 +260,4 @@ function animate() {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
-
 animate();
