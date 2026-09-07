@@ -16,7 +16,7 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(320px, 410px) 1fr;
+  grid-template-columns: minmax(300px, 360px) 1fr;
   background: #0b0e13;
 }
 
@@ -26,7 +26,8 @@ button:disabled { cursor: not-allowed; opacity: .45; }
   gap: 22px;
   padding: 32px 28px;
   border-right: 1px solid #252a33;
-  background: #10141b;
+  background: linear-gradient(180deg, rgba(18, 23, 31, 0.98), rgba(13, 17, 23, 0.98));
+  box-shadow: 18px 0 60px rgba(0, 0, 0, 0.18);
   overflow-y: auto;
   max-height: 100vh;
 }
@@ -151,8 +152,33 @@ h1 {
 
 .hint { margin-top: auto; color: #747f8e; font-size: 12px; }
 
-.viewer-wrap { position: relative; min-width: 0; min-height: 700px; }
-#viewer { display: block; width: 100%; height: 100%; touch-action: none; }
+.viewer-wrap {
+  position: relative;
+  min-width: 0;
+  min-height: 700px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 52% 42%, rgba(65, 91, 130, 0.16), transparent 34%),
+    linear-gradient(180deg, #0c1016 0%, #080b10 100%);
+}
+.viewer-wrap::before {
+  content: 'PROTOTYPE GEOMETRY';
+  position: absolute;
+  left: 22px;
+  bottom: 22px;
+  z-index: 2;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  color: rgba(220,228,240,.62);
+  background: rgba(8,11,16,.58);
+  backdrop-filter: blur(10px);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  pointer-events: none;
+}
+#viewer { display: block; width: 100%; height: 100%; touch-action: none; filter: saturate(.92) contrast(1.03); }
 
 .viewer-badge,
 .mode-badge {
@@ -164,10 +190,14 @@ h1 {
   backdrop-filter: blur(10px);
   font-size: 12px;
 }
-.viewer-badge { right: 20px; bottom: 20px; color: #9da8b7; }
+.viewer-badge { right: 20px; bottom: 20px; color: #9da8b7; max-width: 360px; text-align: right; }
 .mode-badge { left: 20px; top: 20px; color: #f4dda0; border-color: #675728; }
 
 [hidden] { display: none !important; }
+
+@media (min-width: 1100px) {
+  .viewer-wrap { min-height: 760px; }
+}
 
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; }
