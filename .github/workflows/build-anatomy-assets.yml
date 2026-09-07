@@ -42,18 +42,15 @@ jobs:
           root = Path('/tmp/bodyparts3d')
           output = Path('public/models/upper-limb')
           mapping = {
-              'FMA23130.obj': 'humerus.glb',
-              'FMA23464.obj': 'radius.glb',
-              'FMA23467.obj': 'ulna.glb',
+              'FJ3368.obj': 'humerus.glb',
+              'FJ3349.obj': 'radius.glb',
+              'FJ3391.obj': 'ulna.glb',
           }
 
           for source_name, target_name in mapping.items():
               matches = list(root.rglob(source_name))
               if not matches:
-                  candidate_names = [p.name for p in root.rglob('*.obj') if source_name[3:-4] in p.name]
-                  raise FileNotFoundError(
-                      f'Could not find {source_name}. Candidates containing the FMA id: {candidate_names[:20]}'
-                  )
+                  raise FileNotFoundError(f'Could not find atomic BodyParts3D mesh {source_name}')
               source = matches[0]
               loaded = trimesh.load(source, force='scene', process=False)
               scene = trimesh.Scene(loaded) if isinstance(loaded, trimesh.Trimesh) else loaded
