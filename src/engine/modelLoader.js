@@ -2,6 +2,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const loader = new GLTFLoader();
 
+function resolveAssetPath(path) {
+  if (/^https?:\/\//i.test(path)) return path;
+  const cleanPath = path.replace(/^\/+/, '');
+  return `${import.meta.env.BASE_URL}${cleanPath}`;
+}
+
 /**
  * Load one anatomical GLB and tag every mesh with the Anatomica structure key.
  * Returns null rather than throwing so the procedural teaching model can remain
@@ -9,7 +15,8 @@ const loader = new GLTFLoader();
  */
 export async function loadAnatomyModel({ structureKey, path }) {
   try {
-    const gltf = await loader.loadAsync(path);
+    const resolvedPath = resolveAssetPath(path);
+    const gltf = await loader.loadAsync(resolvedPath);
     const root = gltf.scene;
     root.traverse((node) => {
       if (!node.isMesh) return;
