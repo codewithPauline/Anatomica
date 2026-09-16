@@ -42,6 +42,9 @@ for (const item of nerveDeficits) {
   if (!Array.isArray(item.sensoryRegions) || item.sensoryRegions.length === 0) {
     errors.push(`${item.id ?? 'unknown'} must define at least one schematic sensory region.`);
   }
+  if (!Array.isArray(item.motorTests) || item.motorTests.length === 0) {
+    errors.push(`${item.id ?? 'unknown'} must define at least one motor test.`);
+  }
 
   if (seenNerveIds.has(item.id)) errors.push(`Duplicate nerve deficit id: ${item.id}`);
   seenNerveIds.add(item.id);
@@ -49,6 +52,29 @@ for (const item of nerveDeficits) {
   for (const key of nerveDeficitKeys(item)) {
     if (!upperLimbStructures[key]) {
       errors.push(`${item.id} nerve deficit references missing upperLimbStructures key: ${key}`);
+    }
+  }
+
+  const seenTestIds = new Set();
+  for (const test of item.motorTests ?? []) {
+    if (!test.id) errors.push(`${item.id} has a motor test without an id.`);
+    if (!test.label) errors.push(`${item.id}/${test.id ?? 'unknown'} is missing a label.`);
+    if (!test.instruction) errors.push(`${item.id}/${test.id ?? 'unknown'} is missing an instruction.`);
+    if (!test.normal) errors.push(`${item.id}/${test.id ?? 'unknown'} is missing a normal response.`);
+    if (!test.deficit) errors.push(`${item.id}/${test.id ?? 'unknown'} is missing a deficit response.`);
+    if (!Array.isArray(test.targetKeys) || test.targetKeys.length === 0) {
+      errors.push(`${item.id}/${test.id ?? 'unknown'} must define at least one target key.`);
+    }
+    if (seenTestIds.has(test.id)) errors.push(`Duplicate motor test id in ${item.id}: ${test.id}`);
+    seenTestIds.add(test.id);
+
+    for (const key of test.targetKeys ?? []) {
+      if (!upperLimbStructures[key]) {
+        errors.push(`${item.id}/${test.id ?? 'unknown'} references missing upperLimbStructures key: ${key}`);
+      }
+      if (!(item.motorKeys ?? []).includes(key)) {
+        errors.push(`${item.id}/${test.id ?? 'unknown'} target ${key} is not listed in ${item.id}.motorKeys.`);
+      }
     }
   }
 }
@@ -59,4 +85,5 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, and all referenced anatomy keys.`);
+const motorTestCount = nerveDeficits.reduce((sum, item) => sum + (item.motorTests?.length ?? 0), 0);
+console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${motorTestCount} motor tests, and all referenced anatomy keys.`);
