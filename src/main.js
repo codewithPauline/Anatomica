@@ -4,6 +4,7 @@ import { upperLimbStructures } from './data/upperLimb.js';
 import { modelManifest } from './data/modelManifest.js';
 import { brachialPlexus } from './data/brachialPlexus.js';
 import { quizQuestions } from './data/quizQuestions.js';
+import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -12,7 +13,7 @@ app.innerHTML = `
   <div class="shell">
     <aside class="sidebar">
       <header>
-        <p class="eyebrow">ANATOMICA v0.2</p>
+        <p class="eyebrow">ANATOMICA v0.3</p>
         <h1>Upper Limb Explorer</h1>
         <p class="subtitle">Explore structure, function, pathways, and clinical relevance in an interactive 3D model.</p>
       </header>
@@ -44,6 +45,7 @@ app.innerHTML = `
         <button id="rotator-btn" class="tool">Rotator cuff</button>
         <button id="forearm-btn" class="tool">Forearm</button>
         <button id="hand-btn" class="tool">Wrist & hand</button>
+        <button id="clinical-btn" class="tool clinical-accent">Clinical cases</button>
         <button id="plexus-btn" class="tool">Brachial plexus</button>
         <button id="quiz-btn" class="tool accent">Quiz mode</button>
       </section>
@@ -81,6 +83,24 @@ app.innerHTML = `
           <button id="hand-tendons" class="branch-button" type="button"><b>Tendon testing</b><span>FDS · FDP · FPL · extensors</span></button>
           <button id="hand-intrinsics" class="branch-button" type="button"><b>Intrinsic hand</b><span>Thenar · hypothenar · interossei</span></button>
           <button id="hand-blood" class="branch-button" type="button"><b>Blood supply</b><span>Radial · ulnar · palmar arches</span></button>
+        </div>
+      </section>
+
+      <section id="clinical-card" class="learning-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Clinical intelligence</span>
+            <strong>Upper-limb cases</strong>
+          </div>
+          <span class="status-pill">${clinicalCases.length} cases</span>
+        </div>
+        <p id="clinical-case-subtitle" class="quiz-prompt">Select a case to connect anatomy with mechanism, deficit, and examination.</p>
+        <div id="clinical-case-list" class="branch-list"></div>
+        <div class="details clinical-case-details" aria-live="polite">
+          <div><span>Mechanism</span><b id="clinical-mechanism"></b></div>
+          <div><span>Expected deficit</span><b id="clinical-deficit"></b></div>
+          <div><span>Exam clue</span><b id="clinical-exam"></b></div>
+          <div class="clinical-pearl"><span>Clinical pearl</span><b id="clinical-pearl"></b></div>
         </div>
       </section>
 
@@ -179,6 +199,8 @@ let forearmMode = false;
 let forearmCompartment = 'anterior-superficial';
 let handMode = false;
 let handView = 'skeleton';
+let clinicalMode = false;
+let activeClinicalCaseId = clinicalCases[0]?.id ?? null;
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -388,6 +410,11 @@ function deactivateStudyModes(except = '') {
     handMode = false;
     document.querySelector('#hand-btn').classList.remove('active');
     document.querySelector('#hand-card').hidden = true;
+  }
+  if (except !== 'clinical') {
+    clinicalMode = false;
+    document.querySelector('#clinical-btn').classList.remove('active');
+    document.querySelector('#clinical-card').hidden = true;
   }
   if (except !== 'plexus') {
     plexusMode = false;
@@ -666,6 +693,72 @@ Object.keys(handViews).forEach((key) => {
   document.querySelector(`#hand-${key}`)?.addEventListener('click', () => renderHandView(key));
 });
 
+
+const clinicalCaseList = document.querySelector('#clinical-case-list');
+clinicalCases.forEach((caseItem) => {
+  const button = document.createElement('button');
+  button.className = 'branch-button clinical-case-button';
+  button.type = 'button';
+  button.dataset.caseId = caseItem.id;
+  button.innerHTML = `<b>${caseItem.name}</b><span>${caseItem.subtitle}</span>`;
+  button.addEventListener('click', () => renderClinicalCase(caseItem.id));
+  clinicalCaseList.appendChild(button);
+});
+
+function renderClinicalCase(caseId) {
+  const caseItem = clinicalCaseById(caseId);
+  if (!caseItem) return;
+  activeClinicalCaseId = caseItem.id;
+
+  document.querySelectorAll('.clinical-case-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.caseId === caseItem.id);
+  });
+
+  document.querySelector('#clinical-case-subtitle').textContent = caseItem.subtitle;
+  document.querySelector('#clinical-mechanism').textContent = caseItem.mechanism;
+  document.querySelector('#clinical-deficit').textContent = caseItem.deficit;
+  document.querySelector('#clinical-exam').textContent = caseItem.exam;
+  document.querySelector('#clinical-pearl').textContent = caseItem.pearl;
+
+  const visibleKeys = new Set(clinicalCaseKeys(caseItem));
+  const enabledSystems = { skeleton: false, muscles: false, nerves: false, vessels: false, ligaments: false };
+  allMeshes().forEach((mesh) => {
+    if (visibleKeys.has(mesh.userData.structureKey) && enabledSystems[mesh.userData.system] != null) {
+      enabledSystems[mesh.userData.system] = true;
+    }
+  });
+  Object.entries(enabledSystems).forEach(([system, visible]) => setSystemVisibility(system, visible, false));
+  allMeshes().forEach((mesh) => { mesh.visible = visibleKeys.has(mesh.userData.structureKey); });
+
+  clearHighlight();
+  (caseItem.affectedKeys ?? []).forEach((key) => highlightStructure(key, 0x9b6727, 0.78));
+  (caseItem.lesionKeys ?? []).forEach((key) => highlightStructure(key, 0xa8323c, 0.98));
+
+  const primaryKey = caseItem.lesionKeys?.[0];
+  const primaryMesh = primaryKey ? allMeshes().find((mesh) => mesh.userData.structureKey === primaryKey && mesh.visible) : null;
+  if (primaryMesh) {
+    selectedMesh = primaryMesh;
+    renderInfo(primaryKey);
+  }
+
+  setModeBadge(`Clinical · ${caseItem.name}`);
+  fitCameraToMeshes(allMeshes().filter((mesh) => visibleKeys.has(mesh.userData.structureKey)), caseItem.padding ?? 1.28);
+}
+
+document.querySelector('#clinical-btn').addEventListener('click', () => {
+  const nextState = !clinicalMode;
+  deactivateStudyModes('clinical');
+  clinicalMode = nextState;
+  document.querySelector('#clinical-btn').classList.toggle('active', clinicalMode);
+  document.querySelector('#clinical-card').hidden = !clinicalMode;
+  if (clinicalMode) renderClinicalCase(activeClinicalCaseId);
+  else {
+    restoreAll();
+    setModeBadge('');
+    fitCameraToAnatomy();
+  }
+});
+
 const branchContainer = document.querySelector('#plexus-branches');
 brachialPlexus.terminalBranches.forEach((branch) => {
   const button = document.createElement('button');
@@ -772,6 +865,8 @@ hydrateRealModels({
         mesh.visible = forearmViews[forearmCompartment]?.keys.includes(structureKey) ?? false;
       } else if (handMode && allHandKeys.includes(structureKey)) {
         mesh.visible = handVisibleSet(handView).has(structureKey);
+      } else if (clinicalMode) {
+        mesh.visible = new Set(clinicalCaseKeys(clinicalCaseById(activeClinicalCaseId))).has(structureKey);
       } else {
         mesh.visible = systemVisibility[item.system] ?? false;
       }
@@ -782,7 +877,8 @@ hydrateRealModels({
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
 }).then(() => {
-  if (handMode) renderHandView(handView);
+  if (clinicalMode) renderClinicalCase(activeClinicalCaseId);
+  else if (handMode) renderHandView(handView);
   else if (forearmMode) renderForearmCompartment(forearmCompartment);
   else fitCameraToAnatomy();
   if (realAssetCount === 0) {
