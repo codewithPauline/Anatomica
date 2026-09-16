@@ -1,10 +1,12 @@
 import { clinicalCases, clinicalCaseKeys } from '../src/data/clinicalCases.js';
-import { nerveDeficits, nerveDeficitKeys } from '../src/data/nerveDeficits.js';
+import { localizationChallenges } from '../src/data/localizationChallenges.js';
+import { nerveDeficits, nerveDeficitKeys, lesionLevelById } from '../src/data/nerveDeficits.js';
 import { upperLimbStructures } from '../src/data/upperLimb.js';
 
 const errors = [];
 const seenCaseIds = new Set();
 const seenNerveIds = new Set();
+const seenChallengeIds = new Set();
 
 for (const caseItem of clinicalCases) {
   if (!caseItem.id) errors.push('Clinical case is missing an id.');
@@ -126,6 +128,27 @@ for (const item of nerveDeficits) {
   }
 }
 
+for (const challenge of localizationChallenges) {
+  if (!challenge.id) errors.push('Localization challenge is missing an id.');
+  if (!challenge.title) errors.push(`${challenge.id ?? 'unknown'} is missing a title.`);
+  if (!challenge.stem) errors.push(`${challenge.id ?? 'unknown'} is missing a clinical stem.`);
+  if (!challenge.explanation) errors.push(`${challenge.id ?? 'unknown'} is missing an explanation.`);
+  if (!Array.isArray(challenge.findings) || challenge.findings.length < 2) {
+    errors.push(`${challenge.id ?? 'unknown'} must define at least two findings.`);
+  }
+  if (seenChallengeIds.has(challenge.id)) errors.push(`Duplicate localization challenge id: ${challenge.id}`);
+  seenChallengeIds.add(challenge.id);
+
+  const nerve = nerveDeficits.find((item) => item.id === challenge.nerveId);
+  if (!nerve) {
+    errors.push(`${challenge.id ?? 'unknown'} references missing nerve profile: ${challenge.nerveId}`);
+    continue;
+  }
+  if (!lesionLevelById(nerve, challenge.levelId)) {
+    errors.push(`${challenge.id ?? 'unknown'} references missing lesion level ${challenge.levelId} for ${challenge.nerveId}.`);
+  }
+}
+
 if (errors.length) {
   console.error('Clinical content validation failed:');
   for (const error of errors) console.error(`- ${error}`);
@@ -134,4 +157,4 @@ if (errors.length) {
 
 const motorTestCount = nerveDeficits.reduce((sum, item) => sum + (item.motorTests?.length ?? 0), 0);
 const lesionLevelCount = nerveDeficits.reduce((sum, item) => sum + (item.lesionLevels?.length ?? 0), 0);
-console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${lesionLevelCount} lesion levels, ${motorTestCount} motor tests, and all referenced anatomy keys.`);
+console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${lesionLevelCount} lesion levels, ${motorTestCount} motor tests, ${localizationChallenges.length} localization challenges, and all referenced anatomy keys.`);
