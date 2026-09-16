@@ -8,6 +8,7 @@ import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinic
 import { nerveDeficits, nerveDeficitById, nerveDeficitKeys, lesionLevelById } from './data/nerveDeficits.js';
 import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';
 import { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, saveLearnerProgress, summarizeLearnerProgress } from './learning/progressStore.js';
+import { buildMasteryDashboard } from './learning/masteryDashboard.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -51,6 +52,7 @@ app.innerHTML = `
         <button id="clinical-btn" class="tool clinical-accent">Clinical cases</button>
         <button id="nerve-deficit-btn" class="tool nerve-accent">Nerve deficits</button>
         <button id="localization-challenge-btn" class="tool challenge-accent">Localization challenge</button>
+        <button id="mastery-dashboard-btn" class="tool mastery-accent">Mastery dashboard</button>
         <button id="plexus-btn" class="tool">Brachial plexus</button>
         <button id="quiz-btn" class="tool accent">Quiz mode</button>
       </section>
@@ -239,6 +241,57 @@ app.innerHTML = `
         <p class="simulator-note">Educational reasoning exercise only. The 3D answer reveal uses the current modeled anatomy and does not represent patient-specific diagnosis.</p>
       </section>
 
+      <section id="mastery-dashboard-card" class="learning-card mastery-dashboard-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Learning analytics</span>
+            <strong>Mastery dashboard</strong>
+          </div>
+          <span class="status-pill">Browser local</span>
+        </div>
+        <p class="mastery-intro">Track longitudinal localization performance without an account or backend.</p>
+
+        <div class="mastery-overview-stats">
+          <div><span>Sessions</span><b id="mastery-total-sessions">0</b></div>
+          <div><span>Accuracy</span><b id="mastery-overall-accuracy">—</b></div>
+          <div><span>Due review</span><b id="mastery-due-review">0</b></div>
+        </div>
+
+        <div class="mastery-momentum">
+          <span class="section-label">Recent momentum</span>
+          <b id="mastery-momentum-text">Complete at least two sessions to establish a trend.</b>
+        </div>
+
+        <div class="mastery-section">
+          <span class="section-label">Recent session accuracy</span>
+          <div id="mastery-session-trend" class="mastery-session-trend"></div>
+        </div>
+
+        <div class="mastery-section">
+          <span class="section-label">Lesion mastery states</span>
+          <div class="mastery-state-grid">
+            <div class="strong"><span>Strong</span><b id="mastery-count-strong">0</b></div>
+            <div class="practicing"><span>Practicing</span><b id="mastery-count-practicing">0</b></div>
+            <div class="developing"><span>Developing</span><b id="mastery-count-developing">0</b></div>
+            <div class="unseen"><span>Unseen</span><b id="mastery-count-unseen">0</b></div>
+          </div>
+        </div>
+
+        <div class="mastery-section">
+          <span class="section-label">All lesion patterns</span>
+          <div id="mastery-lesion-grid" class="mastery-lesion-grid"></div>
+        </div>
+
+        <div class="mastery-section">
+          <span class="section-label">Weakest practiced concepts</span>
+          <div id="mastery-weakest-list" class="mastery-weakest-list"></div>
+        </div>
+
+        <button id="mastery-review-btn" class="tool full mastery-review-btn" type="button">No review due</button>
+        <button id="mastery-clear-progress" class="mastery-clear-button" type="button">Clear saved progress</button>
+        <p class="simulator-note">Mastery labels summarize practice performance only. Progress stays in this browser and can be cleared at any time.</p>
+      </section>
+
       <section id="plexus-card" class="learning-card" hidden>
         <div class="card-head">
           <div>
@@ -342,6 +395,7 @@ let activeLesionLevelId = nerveDeficits[0]?.lesionLevels?.[0]?.id ?? null;
 let activeMotorTestId = nerveDeficits[0]?.motorTests?.[0]?.id ?? null;
 let motorSimulationState = 'lesion';
 let localizationChallengeMode = false;
+let masteryDashboardMode = false;
 let localizationChallengeDifficulty = 'adaptive';
 let localizationChallengeSessionIds = [];
 let localizationChallengeSessionPosition = 0;
@@ -580,6 +634,11 @@ function deactivateStudyModes(except = '') {
     document.querySelector('#localization-challenge-btn').classList.remove('active');
     document.querySelector('#localization-challenge-card').hidden = true;
   }
+  if (except !== 'mastery-dashboard') {
+    masteryDashboardMode = false;
+    document.querySelector('#mastery-dashboard-btn').classList.remove('active');
+    document.querySelector('#mastery-dashboard-card').hidden = true;
+  }
   if (except !== 'plexus') {
     plexusMode = false;
     document.querySelector('#plexus-btn').classList.remove('active');
@@ -603,7 +662,7 @@ renderer.domElement.addEventListener('pointerdown', (event) => {
   const hit = hits[0]?.object;
   if (!hit) return;
   if (quizMode) return answerQuiz(hit.userData.structureKey);
-  if (localizationChallengeMode) return;
+  if (localizationChallengeMode || masteryDashboardMode) return;
   setSelected(hit);
 });
 
@@ -1179,6 +1238,66 @@ function renderPersistentChallengeProgress() {
     : 'Complete a session to build a mastery profile.';
 }
 
+function formatMasterySessionDate(value) {
+  if (!value) return 'Session';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Session';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function renderMasteryDashboard() {
+  const summary = challengeProgressSummary();
+  const dashboard = buildMasteryDashboard(learnerProgress, summary);
+
+  document.querySelector('#mastery-total-sessions').textContent = String(dashboard.totalSessions);
+  document.querySelector('#mastery-overall-accuracy').textContent = dashboard.overallAccuracy == null
+    ? '—'
+    : `${Math.round(dashboard.overallAccuracy * 100)}%`;
+  document.querySelector('#mastery-due-review').textContent = String(dashboard.dueReviewCount);
+
+  const momentum = dashboard.momentum;
+  let momentumText = 'Complete at least two sessions to establish a trend.';
+  if (momentum.direction === 'steady') momentumText = 'Performance is steady across recent sessions.';
+  if (momentum.direction === 'up') momentumText = `Recent accuracy is up ${Math.round(Math.abs(momentum.delta) * 100)} percentage points.`;
+  if (momentum.direction === 'down') momentumText = `Recent accuracy is down ${Math.round(Math.abs(momentum.delta) * 100)} percentage points — prioritize review.`;
+  document.querySelector('#mastery-momentum-text').textContent = momentumText;
+
+  const trend = document.querySelector('#mastery-session-trend');
+  trend.innerHTML = dashboard.recentSessions.length
+    ? dashboard.recentSessions.map((session) => {
+        const percent = session.accuracy == null ? 0 : Math.round(session.accuracy * 100);
+        const height = Math.max(8, percent);
+        const mode = challengeDifficultyLabel(session.mode);
+        return `<div class="mastery-trend-item" title="${mode} · ${percent}%"><div class="mastery-trend-bar-wrap"><span class="mastery-trend-bar" style="height:${height}%"></span></div><b>${percent}%</b><span>${formatMasterySessionDate(session.completedAt)}</span></div>`;
+      }).join('')
+    : '<p class="mastery-empty">Complete a localization session to start the trend.</p>';
+
+  document.querySelector('#mastery-count-strong').textContent = String(dashboard.masteryCounts.Strong);
+  document.querySelector('#mastery-count-practicing').textContent = String(dashboard.masteryCounts.Practicing);
+  document.querySelector('#mastery-count-developing').textContent = String(dashboard.masteryCounts.Developing);
+  document.querySelector('#mastery-count-unseen').textContent = String(dashboard.masteryCounts.Unseen);
+
+  document.querySelector('#mastery-lesion-grid').innerHTML = dashboard.lesions.map((lesion) => {
+    const percent = lesion.accuracy == null ? 0 : Math.round(lesion.accuracy * 100);
+    const accuracyLabel = lesion.attempts ? `${percent}% · ${lesion.correct}/${lesion.attempts}` : 'Not practiced';
+    const statusClass = lesion.mastery.toLowerCase();
+    return `<div class="mastery-lesion-row ${statusClass}"><div class="mastery-lesion-copy"><span>${lesion.nerveName}</span><b>${lesion.label}</b></div><div class="mastery-lesion-score"><em>${lesion.mastery}</em><span>${accuracyLabel}</span></div><div class="mastery-meter"><span style="width:${lesion.attempts ? Math.max(4, percent) : 0}%"></span></div></div>`;
+  }).join('');
+
+  document.querySelector('#mastery-weakest-list').innerHTML = dashboard.weakest.length
+    ? dashboard.weakest.map((lesion) => {
+        const percent = Math.round((lesion.accuracy ?? 0) * 100);
+        return `<div><b>${lesion.nerveName} · ${lesion.label}</b><span>${percent}% across ${lesion.attempts} attempt${lesion.attempts === 1 ? '' : 's'} · ${lesion.mastery}</span></div>`;
+      }).join('')
+    : '<p class="mastery-empty">No practiced lesion patterns yet.</p>';
+
+  const reviewButton = document.querySelector('#mastery-review-btn');
+  reviewButton.disabled = dashboard.dueReviewCount === 0;
+  reviewButton.textContent = dashboard.dueReviewCount
+    ? `Practice ${dashboard.dueReviewCount} due review${dashboard.dueReviewCount === 1 ? '' : 's'}`
+    : 'No review due';
+}
+
 function recordCompletedChallengeSession() {
   if (localizationChallengeSessionRecorded || localizationChallengeSessionResults.length === 0) return;
   learnerProgress = recordLocalizationSession(learnerProgress, {
@@ -1517,12 +1636,16 @@ document.querySelector('#challenge-next').addEventListener('click', () => {
 document.querySelector('#challenge-restart').addEventListener('click', () => {
   startLocalizationChallengeSession(localizationChallengeDifficulty);
 });
-document.querySelector('#challenge-clear-progress').addEventListener('click', () => {
+function clearAllLearnerProgress() {
   if (!window.confirm('Clear all Anatomica localization progress stored in this browser?')) return;
   learnerProgress = clearLearnerProgress();
   renderPersistentChallengeProgress();
+  renderMasteryDashboard();
   syncChallengeDifficultyButtons();
-});
+}
+
+document.querySelector('#challenge-clear-progress').addEventListener('click', clearAllLearnerProgress);
+document.querySelector('#mastery-clear-progress').addEventListener('click', clearAllLearnerProgress);
 
 document.querySelector('#localization-challenge-btn').addEventListener('click', () => {
   const nextState = !localizationChallengeMode;
@@ -1537,6 +1660,35 @@ document.querySelector('#localization-challenge-btn').addEventListener('click', 
     setModeBadge('');
     fitCameraToAnatomy();
   }
+});
+
+document.querySelector('#mastery-dashboard-btn').addEventListener('click', () => {
+  const nextState = !masteryDashboardMode;
+  deactivateStudyModes('mastery-dashboard');
+  masteryDashboardMode = nextState;
+  document.querySelector('#mastery-dashboard-btn').classList.toggle('active', masteryDashboardMode);
+  document.querySelector('#mastery-dashboard-card').hidden = !masteryDashboardMode;
+  if (masteryDashboardMode) {
+    renderMasteryDashboard();
+    setChallengeNeutralViewer();
+    setModeBadge('Mastery Dashboard · Browser-local learning analytics');
+  } else {
+    restoreAll();
+    setModeBadge('');
+    fitCameraToAnatomy();
+  }
+});
+
+document.querySelector('#mastery-review-btn').addEventListener('click', () => {
+  if (challengeProgressSummary().reviewQueue.length === 0) return;
+  deactivateStudyModes('localization-challenge');
+  masteryDashboardMode = false;
+  document.querySelector('#mastery-dashboard-btn').classList.remove('active');
+  document.querySelector('#mastery-dashboard-card').hidden = true;
+  localizationChallengeMode = true;
+  document.querySelector('#localization-challenge-btn').classList.add('active');
+  document.querySelector('#localization-challenge-card').hidden = false;
+  startLocalizationChallengeSession('review');
 });
 
 const branchContainer = document.querySelector('#plexus-branches');

@@ -493,3 +493,59 @@ h1 {
 .challenge-persistent-stats b { display: block; margin-top: 4px; color: #e1e8f0; font-size: 15px; }
 .challenge-persistent-progress > p { margin: 10px 0 0; color: #91a0b1; font-size: 11px; line-height: 1.45; }
 .challenge-persistent-progress > .challenge-storage-note { color: #687586; font-size: 10px; }
+
+
+/* v0.3.7 longitudinal mastery dashboard */
+.tool.mastery-accent { border-color: #4e657d; }
+.tool.mastery-accent.active { background: #203344; border-color: #7398ba; color: #edf6ff; }
+.mastery-dashboard-card { border-color: #304359; }
+.mastery-intro { margin: 14px 0 0; color: #98a8ba; font-size: 12px; line-height: 1.5; }
+.mastery-overview-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.mastery-overview-stats div { padding: 10px; border: 1px solid #2d3d4d; border-radius: 11px; background: #0f161e; }
+.mastery-overview-stats span { display: block; color: #77889a; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.mastery-overview-stats b { display: block; margin-top: 5px; color: #e4edf5; font-size: 17px; }
+.mastery-momentum { margin-top: 14px; padding: 12px; border: 1px solid #2d4052; border-radius: 11px; background: #101923; }
+.mastery-momentum .section-label { margin-bottom: 6px; }
+.mastery-momentum b { color: #cdd9e5; font-size: 12px; line-height: 1.45; }
+.mastery-section { margin-top: 18px; padding-top: 15px; border-top: 1px solid #273340; }
+.mastery-session-trend { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; align-items: end; min-height: 132px; }
+.mastery-trend-item { display: grid; grid-template-rows: 80px auto auto; gap: 4px; text-align: center; min-width: 0; }
+.mastery-trend-bar-wrap { display: flex; align-items: end; justify-content: center; height: 80px; border-radius: 7px; background: #0d141c; overflow: hidden; }
+.mastery-trend-bar { display: block; width: 72%; min-height: 6px; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, #78a0c5, #395b78); }
+.mastery-trend-item b { color: #dce7f0; font-size: 10px; }
+.mastery-trend-item > span { color: #6f7e8e; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mastery-state-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mastery-state-grid div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid #303b47; border-radius: 10px; background: #10161d; }
+.mastery-state-grid span { font-size: 10px; font-weight: 700; }
+.mastery-state-grid b { font-size: 16px; }
+.mastery-state-grid .strong { border-color: #315e45; color: #cfe9d9; }
+.mastery-state-grid .practicing { border-color: #4b5f76; color: #d2e2f2; }
+.mastery-state-grid .developing { border-color: #6f5c2c; color: #eadfbf; }
+.mastery-state-grid .unseen { color: #929eaa; }
+.mastery-lesion-grid { display: grid; gap: 8px; }
+.mastery-lesion-row { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; padding: 11px; border: 1px solid #2b3540; border-radius: 11px; background: #0f151c; }
+.mastery-lesion-copy span { display: block; color: #748596; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.mastery-lesion-copy b { display: block; margin-top: 3px; color: #dce4ed; font-size: 11.5px; }
+.mastery-lesion-score { text-align: right; }
+.mastery-lesion-score em { display: block; font-size: 10px; font-style: normal; font-weight: 700; }
+.mastery-lesion-score span { display: block; margin-top: 3px; color: #7d8a98; font-size: 9.5px; }
+.mastery-lesion-row.strong .mastery-lesion-score em { color: #8fc8a6; }
+.mastery-lesion-row.practicing .mastery-lesion-score em { color: #9db7d2; }
+.mastery-lesion-row.developing .mastery-lesion-score em { color: #d4bc78; }
+.mastery-lesion-row.unseen .mastery-lesion-score em { color: #7d8995; }
+.mastery-meter { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 999px; background: #1b242e; }
+.mastery-meter span { display: block; height: 100%; border-radius: inherit; background: #688eaf; }
+.mastery-lesion-row.strong .mastery-meter span { background: #4f8c69; }
+.mastery-lesion-row.developing .mastery-meter span { background: #92753c; }
+.mastery-weakest-list { display: grid; gap: 7px; }
+.mastery-weakest-list div { display: grid; gap: 3px; padding: 10px; border-left: 3px solid #7b5f77; background: #17131a; }
+.mastery-weakest-list b { color: #dfd0dd; font-size: 11px; }
+.mastery-weakest-list span { color: #948795; font-size: 10px; line-height: 1.4; }
+.mastery-empty { margin: 0; color: #758392; font-size: 11px; line-height: 1.45; }
+.mastery-review-btn:not(:disabled) { border-color: #577b70; background: #20342e; color: #e2f2ec; }
+.mastery-clear-button { width: 100%; margin-top: 9px; border: 0; background: transparent; color: #748294; cursor: pointer; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.mastery-clear-button:hover { color: #c7d1dc; }
+@media (max-width: 560px) {
+  .mastery-session-trend { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; }
+  .mastery-overview-stats { grid-template-columns: 1fr; }
+}
