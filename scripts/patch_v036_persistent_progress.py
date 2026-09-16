@@ -2,9 +2,14 @@ from pathlib import Path
 
 main_path = Path('src/main.js')
 style_path = Path('src/style.css')
-package_path = Path('package.json')
 
 main = main_path.read_text()
+
+old_import = "import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';\nimport { hydrateRealModels } from './engine/realModelSwap.js';"
+new_import = "import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';\nimport { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, saveLearnerProgress, summarizeLearnerProgress } from './learning/progressStore.js';\nimport { hydrateRealModels } from './engine/realModelSwap.js';"
+if old_import not in main:
+    raise SystemExit('progress-store import anchor not found')
+main = main.replace(old_import, new_import, 1)
 
 old_grid = '''          <div class="challenge-difficulty-grid" role="group" aria-label="Challenge difficulty">
             <button class="tool challenge-difficulty-button" data-challenge-difficulty="easy" type="button">Easy</button>
@@ -20,7 +25,7 @@ new_grid = '''          <div class="challenge-difficulty-grid" role="group" aria
             <button class="tool challenge-difficulty-button" data-challenge-difficulty="intermediate" type="button">Intermediate</button>
             <button class="tool challenge-difficulty-button" data-challenge-difficulty="advanced" type="button">Advanced</button>
             <button class="tool challenge-difficulty-button active" data-challenge-difficulty="adaptive" type="button">Adaptive</button>
-            <button class="tool challenge-difficulty-button" data-challenge-difficulty="review" type="button">Review</button>
+            <button class="tool challenge-difficulty-button" data-challenge-difficulty="review" type="button">Review due</button>
           </div>
           <p id="challenge-mode-note" class="challenge-mode-note">Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.</p>
         </div>
@@ -32,200 +37,110 @@ new_grid = '''          <div class="challenge-difficulty-grid" role="group" aria
           <div class="challenge-persistent-stats">
             <div><span>Sessions</span><b id="challenge-lifetime-sessions">0</b></div>
             <div><span>Accuracy</span><b id="challenge-lifetime-accuracy">—</b></div>
-            <div><span>Review</span><b id="challenge-review-count">0</b></div>
+            <div><span>Due review</span><b id="challenge-review-count">0</b></div>
           </div>
           <p id="challenge-persistent-focus">Complete a session to build a mastery profile.</p>
+          <p class="challenge-storage-note">Stored only in this browser. No account or cloud sync.</p>
         </div>
         <p id="challenge-progress" class="challenge-progress">Case 1 of ${localizationChallenges.length}</p>'''
 if old_grid not in main:
     raise SystemExit('difficulty-grid anchor not found')
 main = main.replace(old_grid, new_grid, 1)
 
-old_state = '''let localizationChallengeMode = false;
-let localizationChallengeDifficulty = 'adaptive';
-let localizationChallengeSessionIds = [];
-let localizationChallengeSessionPosition = 0;
-let localizationChallengeCorrect = 0;
-let localizationChallengeAttempts = 0;
-let localizationChallengeAnswered = false;
-let localizationChallengePerformance = {};
+old_state = '''let localizationChallengePerformance = {};
 let localizationChallengeMisses = [];
 let selectedChallengeNerveId = null;
 let selectedChallengeLevelId = null;'''
-new_state = '''let localizationChallengeMode = false;
-let localizationChallengeDifficulty = 'adaptive';
-let localizationChallengeSessionIds = [];
-let localizationChallengeSessionPosition = 0;
-let localizationChallengeCorrect = 0;
-let localizationChallengeAttempts = 0;
-let localizationChallengeAnswered = false;
-let localizationChallengePerformance = {};
+new_state = '''let localizationChallengePerformance = {};
 let localizationChallengeMisses = [];
+let localizationChallengeSessionResults = [];
 let localizationChallengeSessionRecorded = false;
+let learnerProgress = loadLearnerProgress();
 let selectedChallengeNerveId = null;
-let selectedChallengeLevelId = null;
-
-const CHALLENGE_PROGRESS_KEY = 'anatomica.challengeProgress.v1';
-const CHALLENGE_PROGRESS_MAX_SESSIONS = 30;
-
-function emptyChallengeProgress() {
-  return { version: 1, sessions: [], concepts: {} };
-}
-
-function loadChallengeProgress() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CHALLENGE_PROGRESS_KEY) ?? 'null');
-    if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.sessions) || typeof parsed.concepts !== 'object') {
-      return emptyChallengeProgress();
-    }
-    return parsed;
-  } catch {
-    return emptyChallengeProgress();
-  }
-}
-
-function saveChallengeProgress() {
-  try {
-    localStorage.setItem(CHALLENGE_PROGRESS_KEY, JSON.stringify(localizationStoredProgress));
-  } catch (error) {
-    console.warn('[Anatomica] Browser progress could not be saved.', error);
-  }
-}
-
-let localizationStoredProgress = loadChallengeProgress();'''
+let selectedChallengeLevelId = null;'''
 if old_state not in main:
     raise SystemExit('challenge-state anchor not found')
 main = main.replace(old_state, new_state, 1)
 
-old_helpers = '''function currentLocalizationChallenge() {
+old_current = '''function currentLocalizationChallenge() {
   const id = localizationChallengeSessionIds[localizationChallengeSessionPosition];
   return localizationChallengeById(id);
 }
 
 function resetChallengePerformance() {'''
-new_helpers = '''function currentLocalizationChallenge() {
+new_current = '''function currentLocalizationChallenge() {
   const id = localizationChallengeSessionIds[localizationChallengeSessionPosition];
   return localizationChallengeById(id);
 }
 
-function challengeConceptKey(challenge) {
-  return `${challenge.nerveId}:${challenge.levelId}`;
+function challengeProgressSummary() {
+  return summarizeLearnerProgress(learnerProgress, nerveDeficits, localizationChallenges);
 }
 
 function reviewChallengePool() {
-  const weakKeys = new Set(
-    Object.entries(localizationStoredProgress.concepts ?? {})
-      .filter(([, stats]) => (stats.attempts ?? 0) > 0 && (stats.correct ?? 0) < (stats.attempts ?? 0))
-      .map(([key]) => key),
-  );
-  const targeted = localizationChallenges.filter((challenge) => weakKeys.has(challengeConceptKey(challenge)));
-  return targeted.length ? targeted : localizationChallenges;
-}
-
-function persistentNerveStats() {
-  const stats = Object.fromEntries(nerveDeficits.map((item) => [item.id, { attempts: 0, correct: 0 }]));
-  for (const [key, concept] of Object.entries(localizationStoredProgress.concepts ?? {})) {
-    const nerveId = key.split(':')[0];
-    if (!stats[nerveId]) continue;
-    stats[nerveId].attempts += concept.attempts ?? 0;
-    stats[nerveId].correct += concept.correct ?? 0;
-  }
-  return stats;
+  const dueIds = challengeProgressSummary().reviewQueue.map((item) => item.id);
+  const dueSet = new Set(dueIds);
+  const due = localizationChallenges.filter((challenge) => dueSet.has(challenge.id));
+  return due.length ? due : localizationChallenges;
 }
 
 function renderPersistentChallengeProgress() {
-  const sessions = localizationStoredProgress.sessions ?? [];
-  const concepts = Object.values(localizationStoredProgress.concepts ?? {});
-  const attempts = concepts.reduce((sum, item) => sum + (item.attempts ?? 0), 0);
-  const correct = concepts.reduce((sum, item) => sum + (item.correct ?? 0), 0);
-  const accuracy = attempts ? Math.round((correct / attempts) * 100) : null;
-  const reviewCount = reviewChallengePool().length === localizationChallenges.length && !concepts.some((item) => (item.correct ?? 0) < (item.attempts ?? 0))
-    ? 0
-    : reviewChallengePool().length;
+  const summary = challengeProgressSummary();
+  document.querySelector('#challenge-lifetime-sessions').textContent = String(summary.sessions);
+  document.querySelector('#challenge-lifetime-accuracy').textContent = summary.accuracy == null
+    ? '—'
+    : `${Math.round(summary.accuracy * 100)}%`;
+  document.querySelector('#challenge-review-count').textContent = String(summary.reviewQueue.length);
 
-  document.querySelector('#challenge-lifetime-sessions').textContent = String(sessions.length);
-  document.querySelector('#challenge-lifetime-accuracy').textContent = accuracy == null ? '—' : `${accuracy}%`;
-  document.querySelector('#challenge-review-count').textContent = String(reviewCount);
-
-  const nerveStats = Object.entries(persistentNerveStats())
-    .filter(([, item]) => item.attempts > 0)
-    .map(([nerveId, item]) => ({ nerveId, ...item, accuracy: item.correct / item.attempts }))
-    .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
-  const weakest = nerveStats[0];
-  const weakestNerve = weakest ? nerveDeficitById(weakest.nerveId) : null;
+  const attemptedNerves = summary.nerves
+    .filter((item) => item.attempts > 0)
+    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0) || b.attempts - a.attempts);
+  const weakest = attemptedNerves[0];
   document.querySelector('#challenge-persistent-focus').textContent = weakest
-    ? `Current review focus: ${weakestNerve?.name ?? weakest.nerveId} · ${Math.round(weakest.accuracy * 100)}% across ${weakest.attempts} attempt${weakest.attempts === 1 ? '' : 's'}.`
+    ? `Current focus: ${weakest.name} · ${weakest.mastery} · ${Math.round((weakest.accuracy ?? 0) * 100)}% across ${weakest.attempts} attempt${weakest.attempts === 1 ? '' : 's'}.`
     : 'Complete a session to build a mastery profile.';
 }
 
-function recordPersistentChallengeAnswer(challenge, correct) {
-  const key = challengeConceptKey(challenge);
-  const current = localizationStoredProgress.concepts[key] ?? {
-    nerveId: challenge.nerveId,
-    levelId: challenge.levelId,
-    attempts: 0,
-    correct: 0,
-    misses: 0,
-    lastAttemptAt: null,
-    lastMissedAt: null,
-  };
-  current.attempts += 1;
-  if (correct) current.correct += 1;
-  else {
-    current.misses += 1;
-    current.lastMissedAt = new Date().toISOString();
-  }
-  current.lastAttemptAt = new Date().toISOString();
-  localizationStoredProgress.concepts[key] = current;
-  saveChallengeProgress();
-  renderPersistentChallengeProgress();
-}
-
-function recordPersistentChallengeSession() {
-  if (localizationChallengeSessionRecorded || localizationChallengeAttempts === 0) return;
-  localizationChallengeSessionRecorded = true;
-  localizationStoredProgress.sessions.unshift({
-    completedAt: new Date().toISOString(),
+function recordCompletedChallengeSession() {
+  if (localizationChallengeSessionRecorded || localizationChallengeSessionResults.length === 0) return;
+  learnerProgress = recordLocalizationSession(learnerProgress, {
     mode: localizationChallengeDifficulty,
-    correct: localizationChallengeCorrect,
-    attempts: localizationChallengeAttempts,
-    accuracy: Math.round((localizationChallengeCorrect / localizationChallengeAttempts) * 100),
-    missedConcepts: localizationChallengeMisses.map((miss) => `${miss.nerveId}:${miss.levelId}`),
+    completedAt: new Date().toISOString(),
+    results: localizationChallengeSessionResults,
   });
-  localizationStoredProgress.sessions = localizationStoredProgress.sessions.slice(0, CHALLENGE_PROGRESS_MAX_SESSIONS);
-  saveChallengeProgress();
+  learnerProgress = saveLearnerProgress(learnerProgress);
+  localizationChallengeSessionRecorded = true;
   renderPersistentChallengeProgress();
 }
 
 function resetChallengePerformance() {'''
-if old_helpers not in main:
-    raise SystemExit('challenge-helper anchor not found')
-main = main.replace(old_helpers, new_helpers, 1)
+if old_current not in main:
+    raise SystemExit('challenge-current anchor not found')
+main = main.replace(old_current, new_current, 1)
 
-old_mode_note = '''function challengeModeNote(difficulty) {
+old_note = '''function challengeModeNote(difficulty) {
   if (difficulty === 'adaptive') {
     return 'Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.';
   }
   const count = localizationChallengesForDifficulty(difficulty).length;
   return `${challengeDifficultyLabel(difficulty)} session · ${count} shuffled case${count === 1 ? '' : 's'}.`;
 }'''
-new_mode_note = '''function challengeModeNote(difficulty) {
+new_note = '''function challengeModeNote(difficulty) {
   if (difficulty === 'adaptive') {
     return 'Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.';
   }
   if (difficulty === 'review') {
-    const pool = reviewChallengePool();
-    const targeted = pool.length !== localizationChallenges.length || Object.values(localizationStoredProgress.concepts ?? {}).some((item) => (item.correct ?? 0) < (item.attempts ?? 0));
-    return targeted
-      ? `Review mode · ${pool.length} previously missed concept${pool.length === 1 ? '' : 's'} on this browser.`
-      : 'Review mode has no saved misses yet, so it will use the full challenge bank.';
+    const due = challengeProgressSummary().reviewQueue.length;
+    return due
+      ? `Spaced review · ${due} challenge${due === 1 ? '' : 's'} due on this browser.`
+      : 'No spaced-review items are due yet, so Review due will use the full challenge bank.';
   }
   const count = localizationChallengesForDifficulty(difficulty).length;
   return `${challengeDifficultyLabel(difficulty)} session · ${count} shuffled case${count === 1 ? '' : 's'}.`;
 }'''
-if old_mode_note not in main:
+if old_note not in main:
     raise SystemExit('mode-note anchor not found')
-main = main.replace(old_mode_note, new_mode_note, 1)
+main = main.replace(old_note, new_note, 1)
 
 old_start = '''function startLocalizationChallengeSession(difficulty = localizationChallengeDifficulty) {
   localizationChallengeDifficulty = difficulty;
@@ -250,6 +165,7 @@ new_start = '''function startLocalizationChallengeSession(difficulty = localizat
   localizationChallengeCorrect = 0;
   localizationChallengeAttempts = 0;
   localizationChallengeAnswered = false;
+  localizationChallengeSessionResults = [];
   localizationChallengeSessionRecorded = false;
   selectedChallengeNerveId = null;
   selectedChallengeLevelId = null;
@@ -263,16 +179,23 @@ if old_start not in main:
     raise SystemExit('start-session anchor not found')
 main = main.replace(old_start, new_start, 1)
 
-old_record = '''  recordChallengePerformance(challenge, correct);
+old_submit = '''  if (correct) localizationChallengeCorrect += 1;
+  recordChallengePerformance(challenge, correct);
 
   const answerNerve = nerveDeficitById(challenge.nerveId);'''
-new_record = '''  recordChallengePerformance(challenge, correct);
-  recordPersistentChallengeAnswer(challenge, correct);
+new_submit = '''  if (correct) localizationChallengeCorrect += 1;
+  recordChallengePerformance(challenge, correct);
+  localizationChallengeSessionResults.push({
+    challengeId: challenge.id,
+    nerveId: challenge.nerveId,
+    levelId: challenge.levelId,
+    correct,
+  });
 
   const answerNerve = nerveDeficitById(challenge.nerveId);'''
-if old_record not in main:
-    raise SystemExit('submit-record anchor not found')
-main = main.replace(old_record, new_record, 1)
+if old_submit not in main:
+    raise SystemExit('submit anchor not found')
+main = main.replace(old_submit, new_submit, 1)
 
 old_summary = '''function renderLocalizationChallengeSummary() {
   setChallengeCaseVisibility(false);
@@ -282,7 +205,7 @@ old_summary = '''function renderLocalizationChallengeSummary() {
   const accuracy = localizationChallengeAttempts'''
 new_summary = '''function renderLocalizationChallengeSummary() {
   setChallengeCaseVisibility(false);
-  recordPersistentChallengeSession();
+  recordCompletedChallengeSession();
   const summary = document.querySelector('#challenge-session-summary');
   summary.hidden = false;
 
@@ -301,8 +224,7 @@ new_restart = '''document.querySelector('#challenge-restart').addEventListener('
 });
 document.querySelector('#challenge-clear-progress').addEventListener('click', () => {
   if (!window.confirm('Clear all Anatomica localization progress stored in this browser?')) return;
-  localizationStoredProgress = emptyChallengeProgress();
-  saveChallengeProgress();
+  learnerProgress = clearLearnerProgress();
   renderPersistentChallengeProgress();
   syncChallengeDifficultyButtons();
 });
@@ -315,7 +237,8 @@ main = main.replace(old_restart, new_restart, 1)
 main_path.write_text(main)
 
 style = style_path.read_text()
-style += '''\n\n/* v0.3.6 persistent learner progress */
+if '/* v0.3.6 persistent learner progress */' not in style:
+    style += '''\n\n/* v0.3.6 persistent learner progress */
 .challenge-difficulty-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .challenge-difficulty-button[data-challenge-difficulty="review"] { grid-column: 1 / -1; border-color: #665a7c; }
 .challenge-difficulty-button[data-challenge-difficulty="review"].active { background: #302741; border-color: #8c78aa; color: #efe8f8; }
@@ -344,10 +267,6 @@ style += '''\n\n/* v0.3.6 persistent learner progress */
 .challenge-persistent-stats span { display: block; color: #748294; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
 .challenge-persistent-stats b { display: block; margin-top: 4px; color: #e1e8f0; font-size: 15px; }
 .challenge-persistent-progress > p { margin: 10px 0 0; color: #91a0b1; font-size: 11px; line-height: 1.45; }
+.challenge-persistent-progress > .challenge-storage-note { color: #687586; font-size: 10px; }
 '''
 style_path.write_text(style)
-
-package = package_path.read_text()
-if '"version": "0.3.5"' not in package:
-    raise SystemExit('package version anchor not found')
-package_path.write_text(package.replace('"version": "0.3.5"', '"version": "0.3.6"', 1))
