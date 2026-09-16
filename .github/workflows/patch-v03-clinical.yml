@@ -1,17 +1,17 @@
-# One-time migration for the v0.3 clinical explorer.
-name: Patch Anatomica v0.3 Clinical Mode
+name: Apply Anatomica v0.3 Clinical Patch
 
 on:
   push:
     branches: [main]
     paths:
       - '.github/workflows/patch-v03-clinical.yml'
+      - 'scripts/patch_v03_clinical.py'
 
 permissions:
   contents: write
 
 jobs:
-  patch:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,195 +19,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch clinical mode
+      - name: Apply patch
+        run: python scripts/patch_v03_clinical.py
+
+      - name: Remove one-time migration files
         run: |
-          python - <<'PY'
-          from pathlib import Path
+          git rm .github/workflows/patch-v03-clinical.yml
+          git rm scripts/patch_v03_clinical.py
 
-          def replace_exact(text, old, new, label):
-              if old not in text:
-                  raise SystemExit(f'Missing patch anchor: {label}')
-              return text.replace(old, new, 1)
-
-          main_path = Path('src/main.js')
-          text = main_path.read_text()
-
-          text = replace_exact(
-              text,
-              "import { quizQuestions } from './data/quizQuestions.js';\nimport { hydrateRealModels } from './engine/realModelSwap.js';",
-              "import { quizQuestions } from './data/quizQuestions.js';\nimport { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';\nimport { hydrateRealModels } from './engine/realModelSwap.js';",
-              'clinical import',
-          )
-
-          text = replace_exact(text, 'ANATOMICA v0.2', 'ANATOMICA v0.3', 'version eyebrow')
-
-          text = replace_exact(
-              text,
-              '        <button id="hand-btn" class="tool">Wrist & hand</button>\n        <button id="plexus-btn" class="tool">Brachial plexus</button>',
-              '        <button id="hand-btn" class="tool">Wrist & hand</button>\n        <button id="clinical-btn" class="tool clinical-accent">Clinical cases</button>\n        <button id="plexus-btn" class="tool">Brachial plexus</button>',
-              'clinical button',
-          )
-
-          clinical_card = '''      <section id="clinical-card" class="learning-card" hidden>
-        <div class="card-head">
-          <div>
-            <span class="label">Clinical intelligence</span>
-            <strong>Upper-limb cases</strong>
-          </div>
-          <span class="status-pill">${clinicalCases.length} cases</span>
-        </div>
-        <p id="clinical-case-subtitle" class="quiz-prompt">Select a case to connect anatomy with mechanism, deficit, and examination.</p>
-        <div id="clinical-case-list" class="branch-list"></div>
-        <div class="details clinical-case-details" aria-live="polite">
-          <div><span>Mechanism</span><b id="clinical-mechanism"></b></div>
-          <div><span>Expected deficit</span><b id="clinical-deficit"></b></div>
-          <div><span>Exam clue</span><b id="clinical-exam"></b></div>
-          <div class="clinical-pearl"><span>Clinical pearl</span><b id="clinical-pearl"></b></div>
-        </div>
-      </section>
-
-'''
-          text = replace_exact(
-              text,
-              '      <section id="plexus-card" class="learning-card" hidden>',
-              clinical_card + '      <section id="plexus-card" class="learning-card" hidden>',
-              'clinical card',
-          )
-
-          text = replace_exact(
-              text,
-              "let handMode = false;\nlet handView = 'skeleton';\nlet quizMode = false;",
-              "let handMode = false;\nlet handView = 'skeleton';\nlet clinicalMode = false;\nlet activeClinicalCaseId = clinicalCases[0]?.id ?? null;\nlet quizMode = false;",
-              'clinical state',
-          )
-
-          text = replace_exact(
-              text,
-              "  if (except !== 'plexus') {\n    plexusMode = false;",
-              "  if (except !== 'clinical') {\n    clinicalMode = false;\n    document.querySelector('#clinical-btn').classList.remove('active');\n    document.querySelector('#clinical-card').hidden = true;\n  }\n  if (except !== 'plexus') {\n    plexusMode = false;",
-              'clinical mode deactivation',
-          )
-
-          clinical_logic = r'''
-const clinicalCaseList = document.querySelector('#clinical-case-list');
-clinicalCases.forEach((caseItem) => {
-  const button = document.createElement('button');
-  button.className = 'branch-button clinical-case-button';
-  button.type = 'button';
-  button.dataset.caseId = caseItem.id;
-  button.innerHTML = `<b>${caseItem.name}</b><span>${caseItem.subtitle}</span>`;
-  button.addEventListener('click', () => renderClinicalCase(caseItem.id));
-  clinicalCaseList.appendChild(button);
-});
-
-function renderClinicalCase(caseId) {
-  const caseItem = clinicalCaseById(caseId);
-  if (!caseItem) return;
-  activeClinicalCaseId = caseItem.id;
-
-  document.querySelectorAll('.clinical-case-button').forEach((button) => {
-    button.classList.toggle('active', button.dataset.caseId === caseItem.id);
-  });
-
-  document.querySelector('#clinical-case-subtitle').textContent = caseItem.subtitle;
-  document.querySelector('#clinical-mechanism').textContent = caseItem.mechanism;
-  document.querySelector('#clinical-deficit').textContent = caseItem.deficit;
-  document.querySelector('#clinical-exam').textContent = caseItem.exam;
-  document.querySelector('#clinical-pearl').textContent = caseItem.pearl;
-
-  const visibleKeys = new Set(clinicalCaseKeys(caseItem));
-  const enabledSystems = { skeleton: false, muscles: false, nerves: false, vessels: false, ligaments: false };
-  allMeshes().forEach((mesh) => {
-    if (visibleKeys.has(mesh.userData.structureKey) && enabledSystems[mesh.userData.system] != null) {
-      enabledSystems[mesh.userData.system] = true;
-    }
-  });
-  Object.entries(enabledSystems).forEach(([system, visible]) => setSystemVisibility(system, visible, false));
-  allMeshes().forEach((mesh) => { mesh.visible = visibleKeys.has(mesh.userData.structureKey); });
-
-  clearHighlight();
-  (caseItem.affectedKeys ?? []).forEach((key) => highlightStructure(key, 0x9b6727, 0.78));
-  (caseItem.lesionKeys ?? []).forEach((key) => highlightStructure(key, 0xa8323c, 0.98));
-
-  const primaryKey = caseItem.lesionKeys?.[0];
-  const primaryMesh = primaryKey ? allMeshes().find((mesh) => mesh.userData.structureKey === primaryKey && mesh.visible) : null;
-  if (primaryMesh) {
-    selectedMesh = primaryMesh;
-    renderInfo(primaryKey);
-  }
-
-  setModeBadge(`Clinical · ${caseItem.name}`);
-  fitCameraToMeshes(allMeshes().filter((mesh) => visibleKeys.has(mesh.userData.structureKey)), caseItem.padding ?? 1.28);
-}
-
-document.querySelector('#clinical-btn').addEventListener('click', () => {
-  const nextState = !clinicalMode;
-  deactivateStudyModes('clinical');
-  clinicalMode = nextState;
-  document.querySelector('#clinical-btn').classList.toggle('active', clinicalMode);
-  document.querySelector('#clinical-card').hidden = !clinicalMode;
-  if (clinicalMode) renderClinicalCase(activeClinicalCaseId);
-  else {
-    restoreAll();
-    setModeBadge('');
-    fitCameraToAnatomy();
-  }
-});
-
-'''
-          text = replace_exact(
-              text,
-              "const branchContainer = document.querySelector('#plexus-branches');",
-              clinical_logic + "const branchContainer = document.querySelector('#plexus-branches');",
-              'clinical logic',
-          )
-
-          text = replace_exact(
-              text,
-              "      } else if (handMode && allHandKeys.includes(structureKey)) {\n        mesh.visible = handVisibleSet(handView).has(structureKey);\n      } else {",
-              "      } else if (handMode && allHandKeys.includes(structureKey)) {\n        mesh.visible = handVisibleSet(handView).has(structureKey);\n      } else if (clinicalMode) {\n        mesh.visible = new Set(clinicalCaseKeys(clinicalCaseById(activeClinicalCaseId))).has(structureKey);\n      } else {",
-              'clinical hydration visibility',
-          )
-
-          text = replace_exact(
-              text,
-              "}).then(() => {\n  if (handMode) renderHandView(handView);\n  else if (forearmMode) renderForearmCompartment(forearmCompartment);",
-              "}).then(() => {\n  if (clinicalMode) renderClinicalCase(activeClinicalCaseId);\n  else if (handMode) renderHandView(handView);\n  else if (forearmMode) renderForearmCompartment(forearmCompartment);",
-              'clinical hydration rerender',
-          )
-
-          main_path.write_text(text)
-
-          style_path = Path('src/style.css')
-          style = style_path.read_text()
-          style = replace_exact(
-              style,
-              '.tool.accent { border-color: #596d8f; }',
-              '.tool.accent { border-color: #596d8f; }\n.tool.clinical-accent { border-color: #765058; }\n.tool.clinical-accent.active { background: #452b31; border-color: #a56873; }',
-              'clinical tool style',
-          )
-          style = replace_exact(
-              style,
-              '.branch-button.active span { color: #b9c7d9; }',
-              '.branch-button.active span { color: #b9c7d9; }\n.clinical-case-details { margin-top: 18px; }\n.clinical-case-details .clinical-pearl { border-top-color: #55482d; }\n.clinical-case-details .clinical-pearl b { color: #e4d7ad; }',
-              'clinical detail style',
-          )
-          style_path.write_text(style)
-
-          package_path = Path('package.json')
-          package = package_path.read_text()
-          package = replace_exact(package, '"version": "0.2.0"', '"version": "0.3.0"', 'package version')
-          package_path.write_text(package)
-          PY
-
-      - name: Remove one-time patch workflow
-        run: git rm .github/workflows/patch-v03-clinical.yml
-
-      - name: Commit clinical mode
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/main.js src/style.css package.json .github/workflows/patch-v03-clinical.yml
+          git add src/main.js src/style.css package.json
           git commit -m "feat: launch v0.3 clinical case explorer"
           git pull --rebase origin main
           git push origin HEAD:main
