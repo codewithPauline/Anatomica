@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3 Clinical Intelligence
+## Current milestone — v0.3.1 Clinical Intelligence + Nerve Deficits
 
-Anatomica now connects the existing upper-limb, wrist, and hand anatomy to interactive clinical cases. Learners can move from a lesion or injury pattern to the affected structures, expected deficit, examination clue, and a focused teaching pearl while the relevant anatomy is isolated in 3D.
+Anatomica now connects the existing upper-limb, wrist, and hand anatomy to interactive clinical cases and nerve-localization teaching. Learners can start from either an injury pattern or a named peripheral nerve, then inspect the relevant anatomy, expected motor deficit, sensory territory, lesion sites, and examination clues.
 
 ### Working now
 
@@ -27,8 +27,9 @@ Anatomica now connects the existing upper-limb, wrist, and hand anatomy to inter
 - Forearm Compartments mode with superficial/deep anterior and posterior views
 - Wrist & Hand Explorer with six focused learning views
 - **Clinical Cases mode with lesion/focus anatomy, affected structures, expected deficits, exam clues, and case-specific camera framing**
+- **Nerve Deficit Explorer for median, ulnar, radial, and axillary nerves with motor-structure highlighting and schematic sensory territories**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-case integrity validation in CI so cases cannot silently reference missing anatomy keys
+- Clinical-content integrity validation in CI so cases and nerve profiles cannot silently reference missing anatomy keys
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
@@ -43,6 +44,14 @@ The first v0.3 clinical layer includes six high-yield upper-limb scenarios:
 6. **Scaphoid fracture** — anatomical-snuffbox relationships and the proximal-pole avascular-necrosis risk.
 
 In Clinical Cases mode, the primary lesion or focus is highlighted in red, affected structures in amber, and supporting context anatomy remains visible. Clinical metadata are stored separately in `src/data/clinicalCases.js`, allowing the teaching layer to evolve independently of geometry.
+
+## Nerve Deficit Explorer
+
+The v0.3.1 neurologic-localization layer adds focused profiles for the **median, ulnar, radial, and axillary nerves**.
+
+Selecting a nerve automatically narrows the 3D viewer to that nerve, its major motor targets represented in the current build, and relevant skeletal or regional context. The nerve is emphasized separately from the affected motor structures, while the side panel shows roots, motor pattern, sensory distribution, common lesion sites, examination maneuvers, and a clinical teaching pearl.
+
+Sensory territories are currently presented as **schematic labeled regions**, not anatomically exact 3D skin maps. This keeps the educational distinction clear until validated cutaneous surface geometry is available.
 
 ## Wrist & Hand Explorer
 
@@ -108,11 +117,12 @@ Anatomica intentionally separates geometry, provenance, medical knowledge, and c
 Model provenance     → src/data/modelManifest.js
 Medical knowledge    → src/data/upperLimb.js
 Clinical cases       → src/data/clinicalCases.js
+Nerve deficits       → src/data/nerveDeficits.js
 Learning questions   → src/data/quizQuestions.js
 Rendering / modes    → src/main.js + src/engine/
 ```
 
-This makes it possible to improve a mesh, teaching note, quiz, or clinical scenario without tightly coupling all four layers.
+This makes it possible to improve a mesh, teaching note, quiz, clinical scenario, or nerve profile without tightly coupling those layers.
 
 ### BodyParts3D
 
@@ -132,7 +142,7 @@ See [`ASSETS.md`](ASSETS.md) for provenance and licensing details and [`docs/ANA
 - **Vite** — development and production bundling
 - **JavaScript** — application and learning interactions
 - **glTF / GLB** — browser-ready anatomical geometry
-- **Structured JavaScript data** — anatomy, clinical cases, plexus, provenance, and quizzes
+- **Structured JavaScript data** — anatomy, clinical cases, nerve deficits, plexus, provenance, and quizzes
 - **GitHub Actions** — asset conversion, clinical-data validation, CI, and GitHub Pages deployment
 
 ## Project structure
@@ -145,6 +155,7 @@ Anatomica/
 │   ├── data/
 │   │   ├── upperLimb.js            # Medical knowledge
 │   │   ├── clinicalCases.js        # Clinical scenario layer
+│   │   ├── nerveDeficits.js        # Peripheral-nerve deficit profiles
 │   │   ├── brachialPlexus.js       # Plexus pathway data
 │   │   ├── quizQuestions.js        # Learning question bank
 │   │   ├── anatomyPalette.js       # System + structure color semantics
@@ -156,7 +167,7 @@ Anatomica/
 │   ├── main.js
 │   └── style.css
 ├── scripts/
-│   └── validate_clinical_cases.mjs # Clinical-data integrity check
+│   └── validate_clinical_cases.mjs # Clinical-content integrity check
 ├── docs/
 │   └── ANATOMY_VALIDATION.md       # Visual/anatomical sign-off standard
 ├── .github/workflows/
@@ -188,11 +199,12 @@ Anatomica/
 - [x] Wrist & Hand Explorer clinical views
 - [x] Expanded clinical Quiz Mode
 - [x] Clinical Cases explorer with lesion + affected-structure highlighting
-- [x] Automated clinical-case anatomy-key validation
+- [x] Nerve Deficit Explorer with motor-target highlighting and schematic sensory territories
+- [x] Automated clinical-content anatomy-key validation
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
-- [ ] Motor/sensory territory overlays for nerve lesions
+- [ ] Validated 3D cutaneous territory overlays
 - [ ] Dynamic movement/deficit simulation for selected clinical cases
 - [ ] Production-quality median/ulnar/radial digital nerve geometry
 - [ ] Detailed brachial plexus roots/trunks/divisions/cord geometry
