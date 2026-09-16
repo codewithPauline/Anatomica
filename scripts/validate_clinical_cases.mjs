@@ -45,6 +45,9 @@ for (const item of nerveDeficits) {
   if (!Array.isArray(item.motorTests) || item.motorTests.length === 0) {
     errors.push(`${item.id ?? 'unknown'} must define at least one motor test.`);
   }
+  if (!Array.isArray(item.lesionLevels) || item.lesionLevels.length === 0) {
+    errors.push(`${item.id ?? 'unknown'} must define at least one lesion level.`);
+  }
 
   if (seenNerveIds.has(item.id)) errors.push(`Duplicate nerve deficit id: ${item.id}`);
   seenNerveIds.add(item.id);
@@ -52,6 +55,50 @@ for (const item of nerveDeficits) {
   for (const key of nerveDeficitKeys(item)) {
     if (!upperLimbStructures[key]) {
       errors.push(`${item.id} nerve deficit references missing upperLimbStructures key: ${key}`);
+    }
+  }
+
+  const seenLevelIds = new Set();
+  for (const level of item.lesionLevels ?? []) {
+    if (!level.id) errors.push(`${item.id} has a lesion level without an id.`);
+    if (!level.label) errors.push(`${item.id}/${level.id ?? 'unknown'} is missing a lesion-level label.`);
+    if (!level.subtitle) errors.push(`${item.id}/${level.id ?? 'unknown'} is missing a lesion-level subtitle.`);
+    if (!level.motor) errors.push(`${item.id}/${level.id ?? 'unknown'} is missing a motor pattern.`);
+    if (!level.sensory) errors.push(`${item.id}/${level.id ?? 'unknown'} is missing a sensory pattern.`);
+    if (!level.localization) errors.push(`${item.id}/${level.id ?? 'unknown'} is missing a localization clue.`);
+    if (!Array.isArray(level.affectedMotorKeys)) {
+      errors.push(`${item.id}/${level.id ?? 'unknown'} must define affectedMotorKeys.`);
+    }
+    if (!Array.isArray(level.sparedMotorKeys)) {
+      errors.push(`${item.id}/${level.id ?? 'unknown'} must define sparedMotorKeys.`);
+    }
+    if (seenLevelIds.has(level.id)) errors.push(`Duplicate lesion-level id in ${item.id}: ${level.id}`);
+    seenLevelIds.add(level.id);
+
+    const affected = new Set(level.affectedMotorKeys ?? []);
+    for (const key of level.affectedMotorKeys ?? []) {
+      if (!upperLimbStructures[key]) {
+        errors.push(`${item.id}/${level.id ?? 'unknown'} affected motor key is missing: ${key}`);
+      }
+      if (!(item.motorKeys ?? []).includes(key)) {
+        errors.push(`${item.id}/${level.id ?? 'unknown'} affected motor key ${key} is not listed in ${item.id}.motorKeys.`);
+      }
+    }
+    for (const key of level.sparedMotorKeys ?? []) {
+      if (!upperLimbStructures[key]) {
+        errors.push(`${item.id}/${level.id ?? 'unknown'} spared motor key is missing: ${key}`);
+      }
+      if (!(item.motorKeys ?? []).includes(key)) {
+        errors.push(`${item.id}/${level.id ?? 'unknown'} spared motor key ${key} is not listed in ${item.id}.motorKeys.`);
+      }
+      if (affected.has(key)) {
+        errors.push(`${item.id}/${level.id ?? 'unknown'} lists ${key} as both affected and spared.`);
+      }
+    }
+    for (const key of level.contextKeys ?? []) {
+      if (!upperLimbStructures[key]) {
+        errors.push(`${item.id}/${level.id ?? 'unknown'} context key is missing: ${key}`);
+      }
     }
   }
 
@@ -86,4 +133,5 @@ if (errors.length) {
 }
 
 const motorTestCount = nerveDeficits.reduce((sum, item) => sum + (item.motorTests?.length ?? 0), 0);
-console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${motorTestCount} motor tests, and all referenced anatomy keys.`);
+const lesionLevelCount = nerveDeficits.reduce((sum, item) => sum + (item.lesionLevels?.length ?? 0), 0);
+console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${lesionLevelCount} lesion levels, ${motorTestCount} motor tests, and all referenced anatomy keys.`);
