@@ -7,8 +7,8 @@ export const nerveDeficits = [
     subtitle: 'Forearm flexion · thenar function · lateral-hand sensation',
     motorKeys: [
       'pronatorTeres', 'flexorCarpiRadialis', 'flexorDigitorumSuperficialis',
-      'flexorPollicisLongus', 'pronatorQuadratus', 'abductorPollicisBrevis',
-      'opponensPollicis', 'flexorPollicisBrevis',
+      'flexorDigitorumProfundus', 'flexorPollicisLongus', 'pronatorQuadratus',
+      'abductorPollicisBrevis', 'opponensPollicis', 'flexorPollicisBrevis',
     ],
     contextKeys: ['humerus', 'radius', 'ulna', 'flexorRetinaculum', 'scaphoid', 'lunate', 'trapezium'],
     motorSummary: 'Weak pronation, selected wrist/finger flexion, thumb abduction, and opposition depending on lesion level.',
