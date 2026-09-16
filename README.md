@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3.1 Clinical Intelligence + Nerve Deficits
+## Current milestone — v0.3.2 Clinical Intelligence + Functional Examination
 
-Anatomica now connects the existing upper-limb, wrist, and hand anatomy to interactive clinical cases and nerve-localization teaching. Learners can start from either an injury pattern or a named peripheral nerve, then inspect the relevant anatomy, expected motor deficit, sensory territory, lesion sites, and examination clues.
+Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, nerve-localization teaching, and focused motor examination. Learners can start from an injury pattern or a named peripheral nerve, then inspect the relevant anatomy, expected motor deficit, sensory territory, lesion sites, and examination maneuvers.
 
 ### Working now
 
@@ -28,13 +28,14 @@ Anatomica now connects the existing upper-limb, wrist, and hand anatomy to inter
 - Wrist & Hand Explorer with six focused learning views
 - **Clinical Cases mode with lesion/focus anatomy, affected structures, expected deficits, exam clues, and case-specific camera framing**
 - **Nerve Deficit Explorer for median, ulnar, radial, and axillary nerves with motor-structure highlighting and schematic sensory territories**
+- **Motor Test Simulator with normal-versus-lesion comparison for 11 focused examination maneuvers**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-content integrity validation in CI so cases and nerve profiles cannot silently reference missing anatomy keys
+- Clinical-content integrity validation in CI so cases, nerve profiles, and motor tests cannot silently reference missing anatomy keys
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
 
-The first v0.3 clinical layer includes six high-yield upper-limb scenarios:
+The v0.3 clinical layer includes six high-yield upper-limb scenarios:
 
 1. **Carpal tunnel syndrome** — median nerve compression, flexor retinaculum, thenar weakness, and thumb opposition/abduction.
 2. **Ulnar neuropathy at the elbow** — cubital-tunnel anatomy, intrinsic hand weakness, Froment sign, and the ulnar paradox.
@@ -47,11 +48,29 @@ In Clinical Cases mode, the primary lesion or focus is highlighted in red, affec
 
 ## Nerve Deficit Explorer
 
-The v0.3.1 neurologic-localization layer adds focused profiles for the **median, ulnar, radial, and axillary nerves**.
+The neurologic-localization layer includes focused profiles for the **median, ulnar, radial, and axillary nerves**.
 
-Selecting a nerve automatically narrows the 3D viewer to that nerve, its major motor targets represented in the current build, and relevant skeletal or regional context. The nerve is emphasized separately from the affected motor structures, while the side panel shows roots, motor pattern, sensory distribution, common lesion sites, examination maneuvers, and a clinical teaching pearl.
+Selecting a nerve narrows the 3D viewer to that nerve, its major motor targets represented in the current build, and relevant skeletal or regional context. The side panel shows roots, motor pattern, sensory distribution, common lesion sites, examination maneuvers, and a clinical teaching pearl.
 
 Sensory territories are currently presented as **schematic labeled regions**, not anatomically exact 3D skin maps. This keeps the educational distinction clear until validated cutaneous surface geometry is available.
+
+## Motor Test Simulator
+
+v0.3.2 adds a functional-examination workflow inside the Nerve Deficit Explorer. Each nerve profile contains focused motor tests that can be viewed in two states:
+
+- **Normal activation** — the selected motor targets are highlighted in green with the expected normal response.
+- **Lesion pattern** — the involved nerve is highlighted in red, the selected motor targets in amber, and the expected deficit is shown.
+
+The current simulator includes 11 maneuvers:
+
+- **Median nerve** — thumb opposition, forearm pronation, OK sign
+- **Ulnar nerve** — finger abduction, finger adduction, key pinch
+- **Radial nerve** — wrist extension, finger extension, thumb extension
+- **Axillary nerve** — shoulder abduction, external rotation
+
+The current imported anatomy is not rigged, so the simulator uses activation highlighting rather than artificial joint or muscle deformation. This is intentionally a functional-anatomy teaching layer, not a biomechanical motion model.
+
+See [`docs/MOTOR_TEST_SIMULATOR.md`](docs/MOTOR_TEST_SIMULATOR.md) for the exam definitions, interaction model, and limitations.
 
 ## Wrist & Hand Explorer
 
@@ -122,7 +141,7 @@ Learning questions   → src/data/quizQuestions.js
 Rendering / modes    → src/main.js + src/engine/
 ```
 
-This makes it possible to improve a mesh, teaching note, quiz, clinical scenario, or nerve profile without tightly coupling those layers.
+This makes it possible to improve a mesh, teaching note, quiz, clinical scenario, nerve profile, or motor test without tightly coupling those layers.
 
 ### BodyParts3D
 
@@ -142,7 +161,7 @@ See [`ASSETS.md`](ASSETS.md) for provenance and licensing details and [`docs/ANA
 - **Vite** — development and production bundling
 - **JavaScript** — application and learning interactions
 - **glTF / GLB** — browser-ready anatomical geometry
-- **Structured JavaScript data** — anatomy, clinical cases, nerve deficits, plexus, provenance, and quizzes
+- **Structured JavaScript data** — anatomy, clinical cases, nerve deficits, motor tests, plexus, provenance, and quizzes
 - **GitHub Actions** — asset conversion, clinical-data validation, CI, and GitHub Pages deployment
 
 ## Project structure
@@ -155,7 +174,7 @@ Anatomica/
 │   ├── data/
 │   │   ├── upperLimb.js            # Medical knowledge
 │   │   ├── clinicalCases.js        # Clinical scenario layer
-│   │   ├── nerveDeficits.js        # Peripheral-nerve deficit profiles
+│   │   ├── nerveDeficits.js        # Nerve profiles + motor tests
 │   │   ├── brachialPlexus.js       # Plexus pathway data
 │   │   ├── quizQuestions.js        # Learning question bank
 │   │   ├── anatomyPalette.js       # System + structure color semantics
@@ -169,7 +188,8 @@ Anatomica/
 ├── scripts/
 │   └── validate_clinical_cases.mjs # Clinical-content integrity check
 ├── docs/
-│   └── ANATOMY_VALIDATION.md       # Visual/anatomical sign-off standard
+│   ├── ANATOMY_VALIDATION.md       # Visual/anatomical sign-off standard
+│   └── MOTOR_TEST_SIMULATOR.md     # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
 │   ├── ci.yml
@@ -200,12 +220,13 @@ Anatomica/
 - [x] Expanded clinical Quiz Mode
 - [x] Clinical Cases explorer with lesion + affected-structure highlighting
 - [x] Nerve Deficit Explorer with motor-target highlighting and schematic sensory territories
-- [x] Automated clinical-content anatomy-key validation
+- [x] Motor Test Simulator with normal-versus-lesion comparison
+- [x] Automated clinical-content and motor-test anatomy-key validation
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
 - [ ] Validated 3D cutaneous territory overlays
-- [ ] Dynamic movement/deficit simulation for selected clinical cases
+- [ ] Rigged, validated movement/deficit simulation for selected clinical cases
 - [ ] Production-quality median/ulnar/radial digital nerve geometry
 - [ ] Detailed brachial plexus roots/trunks/divisions/cord geometry
 - [ ] Cadaver-style progressive layer removal
