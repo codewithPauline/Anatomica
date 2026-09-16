@@ -6,7 +6,7 @@ import { brachialPlexus } from './data/brachialPlexus.js';
 import { quizQuestions } from './data/quizQuestions.js';
 import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';
 import { nerveDeficits, nerveDeficitById, nerveDeficitKeys, lesionLevelById } from './data/nerveDeficits.js';
-import { localizationChallenges, localizationChallengeByIndex } from './data/localizationChallenges.js';
+import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -179,6 +179,16 @@ app.innerHTML = `
           </div>
           <span id="challenge-score" class="status-pill">0 / 0</span>
         </div>
+        <div class="challenge-session-controls">
+          <span class="section-label">Session mode</span>
+          <div class="challenge-difficulty-grid" role="group" aria-label="Challenge difficulty">
+            <button class="tool challenge-difficulty-button" data-challenge-difficulty="easy" type="button">Easy</button>
+            <button class="tool challenge-difficulty-button" data-challenge-difficulty="intermediate" type="button">Intermediate</button>
+            <button class="tool challenge-difficulty-button" data-challenge-difficulty="advanced" type="button">Advanced</button>
+            <button class="tool challenge-difficulty-button active" data-challenge-difficulty="adaptive" type="button">Adaptive</button>
+          </div>
+          <p id="challenge-mode-note" class="challenge-mode-note">Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.</p>
+        </div>
         <p id="challenge-progress" class="challenge-progress">Case 1 of ${localizationChallenges.length}</p>
         <strong id="challenge-title" class="challenge-title"></strong>
         <p id="challenge-stem" class="quiz-prompt"></p>
@@ -200,6 +210,17 @@ app.innerHTML = `
           <p id="challenge-feedback-explanation"></p>
         </div>
         <button id="challenge-next" class="tool full" type="button" hidden>Next case</button>
+        <div id="challenge-session-summary" class="challenge-session-summary" hidden aria-live="polite">
+          <span class="section-label">Session complete</span>
+          <strong id="challenge-summary-score"></strong>
+          <p id="challenge-summary-focus"></p>
+          <div id="challenge-nerve-summary" class="challenge-nerve-summary"></div>
+          <div class="challenge-missed-block">
+            <span class="section-label">Missed localizations</span>
+            <div id="challenge-missed-list" class="challenge-missed-list"></div>
+          </div>
+          <button id="challenge-restart" class="tool full" type="button">Start another session</button>
+        </div>
         <p class="simulator-note">Educational reasoning exercise only. The 3D answer reveal uses the current modeled anatomy and does not represent patient-specific diagnosis.</p>
       </section>
 
@@ -306,10 +327,14 @@ let activeLesionLevelId = nerveDeficits[0]?.lesionLevels?.[0]?.id ?? null;
 let activeMotorTestId = nerveDeficits[0]?.motorTests?.[0]?.id ?? null;
 let motorSimulationState = 'lesion';
 let localizationChallengeMode = false;
-let localizationChallengeIndex = 0;
+let localizationChallengeDifficulty = 'adaptive';
+let localizationChallengeSessionIds = [];
+let localizationChallengeSessionPosition = 0;
 let localizationChallengeCorrect = 0;
 let localizationChallengeAttempts = 0;
 let localizationChallengeAnswered = false;
+let localizationChallengePerformance = {};
+let localizationChallengeMisses = [];
 let selectedChallengeNerveId = null;
 let selectedChallengeLevelId = null;
 let quizMode = false;
@@ -1094,8 +1119,60 @@ document.querySelector('#motor-lesion-btn').addEventListener('click', () => {
 });
 
 
+function shuffleChallenges(items) {
+  const shuffled = [...items];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 function currentLocalizationChallenge() {
-  return localizationChallengeByIndex(localizationChallengeIndex);
+  const id = localizationChallengeSessionIds[localizationChallengeSessionPosition];
+  return localizationChallengeById(id);
+}
+
+function resetChallengePerformance() {
+  localizationChallengePerformance = Object.fromEntries(
+    nerveDeficits.map((item) => [item.id, { attempts: 0, correct: 0 }]),
+  );
+  localizationChallengeMisses = [];
+}
+
+function challengeDifficultyLabel(value) {
+  return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '';
+}
+
+function challengeModeNote(difficulty) {
+  if (difficulty === 'adaptive') {
+    return 'Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.';
+  }
+  const count = localizationChallengesForDifficulty(difficulty).length;
+  return `${challengeDifficultyLabel(difficulty)} session · ${count} shuffled case${count === 1 ? '' : 's'}.`;
+}
+
+function syncChallengeDifficultyButtons() {
+  document.querySelectorAll('.challenge-difficulty-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.challengeDifficulty === localizationChallengeDifficulty);
+  });
+  document.querySelector('#challenge-mode-note').textContent = challengeModeNote(localizationChallengeDifficulty);
+}
+
+function startLocalizationChallengeSession(difficulty = localizationChallengeDifficulty) {
+  localizationChallengeDifficulty = difficulty;
+  const pool = localizationChallengesForDifficulty(difficulty);
+  localizationChallengeSessionIds = shuffleChallenges(pool).map((challenge) => challenge.id);
+  localizationChallengeSessionPosition = 0;
+  localizationChallengeCorrect = 0;
+  localizationChallengeAttempts = 0;
+  localizationChallengeAnswered = false;
+  selectedChallengeNerveId = null;
+  selectedChallengeLevelId = null;
+  resetChallengePerformance();
+  syncChallengeDifficultyButtons();
+  document.querySelector('#challenge-session-summary').hidden = true;
+  renderLocalizationChallenge();
 }
 
 function localizationChallengeVisibleKeys(challenge) {
@@ -1166,6 +1243,19 @@ function renderChallengeNerveOptions() {
   });
 }
 
+function setChallengeCaseVisibility(visible) {
+  const ids = [
+    'challenge-progress', 'challenge-title', 'challenge-stem', 'challenge-findings',
+    'challenge-submit', 'challenge-feedback', 'challenge-next',
+  ];
+  ids.forEach((id) => {
+    const node = document.querySelector(`#${id}`);
+    if (node) node.hidden = !visible;
+  });
+  document.querySelector('#challenge-nerve-options')?.closest('.challenge-answer-block')?.toggleAttribute('hidden', !visible);
+  document.querySelector('#challenge-level-options')?.closest('.challenge-answer-block')?.toggleAttribute('hidden', !visible);
+}
+
 function setChallengeNeutralViewer() {
   restoreAll();
   Object.keys(anatomicalGroups).forEach((system) => setSystemVisibility(system, system === 'skeleton', false));
@@ -1178,12 +1268,18 @@ function setChallengeNeutralViewer() {
 
 function renderLocalizationChallenge() {
   const challenge = currentLocalizationChallenge();
-  if (!challenge) return;
+  if (!challenge) {
+    renderLocalizationChallengeSummary();
+    return;
+  }
 
+  setChallengeCaseVisibility(true);
+  document.querySelector('#challenge-session-summary').hidden = true;
   localizationChallengeAnswered = false;
   selectedChallengeNerveId = null;
   selectedChallengeLevelId = null;
-  document.querySelector('#challenge-progress').textContent = `Case ${localizationChallengeIndex + 1} of ${localizationChallenges.length}`;
+  const total = localizationChallengeSessionIds.length;
+  document.querySelector('#challenge-progress').textContent = `Case ${localizationChallengeSessionPosition + 1} of ${total} · ${challengeDifficultyLabel(challenge.difficulty)}`;
   document.querySelector('#challenge-score').textContent = `${localizationChallengeCorrect} / ${localizationChallengeAttempts}`;
   document.querySelector('#challenge-title').textContent = challenge.title;
   document.querySelector('#challenge-stem').textContent = challenge.stem;
@@ -1191,12 +1287,14 @@ function renderLocalizationChallenge() {
   document.querySelector('#challenge-feedback').hidden = true;
   document.querySelector('#challenge-feedback').className = 'challenge-feedback';
   document.querySelector('#challenge-next').hidden = true;
+  document.querySelector('#challenge-next').textContent = localizationChallengeSessionPosition === total - 1 ? 'View session summary' : 'Next case';
+  document.querySelector('#challenge-submit').hidden = false;
   document.querySelector('#challenge-submit').disabled = true;
 
   renderChallengeNerveOptions();
   renderChallengeLevelOptions();
   setChallengeNeutralViewer();
-  setModeBadge(`Localization Challenge · ${localizationChallengeIndex + 1}/${localizationChallenges.length}`);
+  setModeBadge(`Localization Challenge · ${challengeDifficultyLabel(localizationChallengeDifficulty)} · ${localizationChallengeSessionPosition + 1}/${total}`);
 }
 
 function revealLocalizationChallenge(challenge) {
@@ -1229,6 +1327,38 @@ function revealLocalizationChallenge(challenge) {
   fitCameraToMeshes(allMeshes().filter((mesh) => visibleKeys.has(mesh.userData.structureKey)), item.padding ?? 1.24);
 }
 
+function promoteAdaptiveFollowUp(nerveId) {
+  if (localizationChallengeDifficulty !== 'adaptive') return;
+  const targetPosition = localizationChallengeSessionPosition + 1;
+  const followUpPosition = localizationChallengeSessionIds.findIndex((id, index) => {
+    if (index <= localizationChallengeSessionPosition) return false;
+    return localizationChallengeById(id)?.nerveId === nerveId;
+  });
+  if (followUpPosition > targetPosition) {
+    [localizationChallengeSessionIds[targetPosition], localizationChallengeSessionIds[followUpPosition]] = [
+      localizationChallengeSessionIds[followUpPosition],
+      localizationChallengeSessionIds[targetPosition],
+    ];
+  }
+}
+
+function recordChallengePerformance(challenge, correct) {
+  const stats = localizationChallengePerformance[challenge.nerveId] ?? { attempts: 0, correct: 0 };
+  stats.attempts += 1;
+  if (correct) stats.correct += 1;
+  localizationChallengePerformance[challenge.nerveId] = stats;
+
+  if (!correct) {
+    localizationChallengeMisses.push({
+      challengeId: challenge.id,
+      nerveId: challenge.nerveId,
+      levelId: challenge.levelId,
+      title: challenge.title,
+    });
+    promoteAdaptiveFollowUp(challenge.nerveId);
+  }
+}
+
 function submitLocalizationChallenge() {
   if (localizationChallengeAnswered || !selectedChallengeNerveId || !selectedChallengeLevelId) return;
   const challenge = currentLocalizationChallenge();
@@ -1238,6 +1368,7 @@ function submitLocalizationChallenge() {
   localizationChallengeAttempts += 1;
   const correct = selectedChallengeNerveId === challenge.nerveId && selectedChallengeLevelId === challenge.levelId;
   if (correct) localizationChallengeCorrect += 1;
+  recordChallengePerformance(challenge, correct);
 
   const answerNerve = nerveDeficitById(challenge.nerveId);
   const answerLevel = lesionLevelById(answerNerve, challenge.levelId);
@@ -1253,10 +1384,64 @@ function submitLocalizationChallenge() {
   revealLocalizationChallenge(challenge);
 }
 
+function renderLocalizationChallengeSummary() {
+  setChallengeCaseVisibility(false);
+  const summary = document.querySelector('#challenge-session-summary');
+  summary.hidden = false;
+
+  const accuracy = localizationChallengeAttempts
+    ? Math.round((localizationChallengeCorrect / localizationChallengeAttempts) * 100)
+    : 0;
+  document.querySelector('#challenge-score').textContent = `${localizationChallengeCorrect} / ${localizationChallengeAttempts}`;
+  document.querySelector('#challenge-summary-score').textContent = `${accuracy}% accuracy · ${localizationChallengeCorrect}/${localizationChallengeAttempts} correct`;
+
+  const attemptedStats = Object.entries(localizationChallengePerformance)
+    .filter(([, stats]) => stats.attempts > 0)
+    .map(([nerveId, stats]) => ({ nerveId, ...stats, accuracy: stats.correct / stats.attempts }));
+  const weakest = attemptedStats.length
+    ? [...attemptedStats].sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts)[0]
+    : null;
+  const weakestNerve = weakest ? nerveDeficitById(weakest.nerveId) : null;
+  document.querySelector('#challenge-summary-focus').textContent = localizationChallengeMisses.length
+    ? `Review focus: ${weakestNerve?.name ?? weakest?.nerveId}. Revisit the missed lesion-level clues below, then run another adaptive session.`
+    : 'No missed localizations in this session. Try a harder or adaptive session to keep testing discrimination between lesion levels.';
+
+  document.querySelector('#challenge-nerve-summary').innerHTML = attemptedStats.map((stats) => {
+    const item = nerveDeficitById(stats.nerveId);
+    const percent = Math.round(stats.accuracy * 100);
+    return `<div><span>${item?.name ?? stats.nerveId}</span><b>${stats.correct}/${stats.attempts}</b><em>${percent}%</em></div>`;
+  }).join('');
+
+  document.querySelector('#challenge-missed-list').innerHTML = localizationChallengeMisses.length
+    ? localizationChallengeMisses.map((miss) => {
+        const item = nerveDeficitById(miss.nerveId);
+        const level = lesionLevelById(item, miss.levelId);
+        return `<div><b>${item?.name ?? miss.nerveId} · ${level?.label ?? miss.levelId}</b><span>${miss.title}</span></div>`;
+      }).join('')
+    : '<p class="challenge-empty">No missed localizations.</p>';
+
+  setChallengeNeutralViewer();
+  setModeBadge(`Localization Summary · ${challengeDifficultyLabel(localizationChallengeDifficulty)} · ${accuracy}%`);
+}
+
+document.querySelectorAll('.challenge-difficulty-button').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!localizationChallengeMode) return;
+    startLocalizationChallengeSession(button.dataset.challengeDifficulty);
+  });
+});
+
 document.querySelector('#challenge-submit').addEventListener('click', submitLocalizationChallenge);
 document.querySelector('#challenge-next').addEventListener('click', () => {
-  localizationChallengeIndex = (localizationChallengeIndex + 1) % localizationChallenges.length;
+  if (localizationChallengeSessionPosition >= localizationChallengeSessionIds.length - 1) {
+    renderLocalizationChallengeSummary();
+    return;
+  }
+  localizationChallengeSessionPosition += 1;
   renderLocalizationChallenge();
+});
+document.querySelector('#challenge-restart').addEventListener('click', () => {
+  startLocalizationChallengeSession(localizationChallengeDifficulty);
 });
 
 document.querySelector('#localization-challenge-btn').addEventListener('click', () => {
@@ -1266,7 +1451,7 @@ document.querySelector('#localization-challenge-btn').addEventListener('click', 
   document.querySelector('#localization-challenge-btn').classList.toggle('active', localizationChallengeMode);
   document.querySelector('#localization-challenge-card').hidden = !localizationChallengeMode;
   if (localizationChallengeMode) {
-    renderLocalizationChallenge();
+    startLocalizationChallengeSession(localizationChallengeDifficulty);
   } else {
     restoreAll();
     setModeBadge('');

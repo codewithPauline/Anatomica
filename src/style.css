@@ -379,3 +379,85 @@ h1 {
   background: #211519;
 }
 .challenge-feedback.incorrect > strong { color: #ebccd1; }
+
+
+/* v0.3.5 adaptive localization sessions */
+.challenge-session-controls {
+  margin-top: 15px;
+  padding: 13px;
+  border: 1px solid #33413f;
+  border-radius: 12px;
+  background: #111a18;
+}
+.challenge-difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.challenge-difficulty-button {
+  min-height: 38px;
+  font-size: 11px;
+}
+.challenge-difficulty-button.active {
+  background: #26423a;
+  border-color: #6b998a;
+  color: #e5f5ef;
+}
+.challenge-mode-note {
+  margin: 9px 0 0;
+  color: #83928e;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.challenge-session-summary {
+  margin-top: 16px;
+  padding: 15px;
+  border: 1px solid #3a4f49;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #13211d, #101917);
+}
+.challenge-session-summary > strong {
+  display: block;
+  margin-top: 8px;
+  color: #e7f2ee;
+  font-size: 19px;
+}
+.challenge-session-summary > p {
+  margin: 9px 0 0;
+  color: #a8b7b2;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.challenge-nerve-summary {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+.challenge-nerve-summary div {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #2e3d3a;
+  border-radius: 10px;
+  background: #101816;
+}
+.challenge-nerve-summary span { color: #c8d5d1; font-size: 12px; }
+.challenge-nerve-summary b { color: #edf4f2; font-size: 12px; }
+.challenge-nerve-summary em { color: #86a79c; font-size: 11px; font-style: normal; }
+.challenge-missed-block {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #2b3936;
+}
+.challenge-missed-list { display: grid; gap: 7px; }
+.challenge-missed-list div {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border-left: 3px solid #8d5f65;
+  background: #191518;
+}
+.challenge-missed-list b { color: #e3cdd0; font-size: 11.5px; }
+.challenge-missed-list span { color: #9f8e91; font-size: 10.5px; line-height: 1.4; }
