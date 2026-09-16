@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "validate:clinical": "node scripts/validate_clinical_cases.mjs",
     "assets:extract": "python scripts/prepare_bodyparts3d.py",
     "assets:build": "python scripts/prepare_bodyparts3d.py --convert"
   },
