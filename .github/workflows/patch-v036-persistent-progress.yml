@@ -1,4 +1,5 @@
 name: Apply Anatomica v0.3.6 Persistent Progress Patch
+# corrected migration: reuse tested src/learning/progressStore.js
 
 on:
   push:
