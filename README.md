@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.2 Upper Limb + Wrist & Hand
+## Current milestone — v0.3 Clinical Intelligence
 
-Anatomica now moves from the shoulder through the arm and forearm into a dedicated wrist-and-hand learning environment.
+Anatomica now connects the existing upper-limb, wrist, and hand anatomy to interactive clinical cases. Learners can move from a lesion or injury pattern to the affected structures, expected deficit, examination clue, and a focused teaching pearl while the relevant anatomy is isolated in 3D.
 
 ### Working now
 
@@ -26,12 +26,27 @@ Anatomica now moves from the shoulder through the arm and forearm into a dedicat
 - Brachial Plexus pathway mode covering C5–T1 and the five classic terminal branches
 - Forearm Compartments mode with superficial/deep anterior and posterior views
 - Wrist & Hand Explorer with six focused learning views
+- **Clinical Cases mode with lesion/focus anatomy, affected structures, expected deficits, exam clues, and case-specific camera framing**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
+- Clinical-case integrity validation in CI so cases cannot silently reference missing anatomy keys
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
+
+## Clinical Cases
+
+The first v0.3 clinical layer includes six high-yield upper-limb scenarios:
+
+1. **Carpal tunnel syndrome** — median nerve compression, flexor retinaculum, thenar weakness, and thumb opposition/abduction.
+2. **Ulnar neuropathy at the elbow** — cubital-tunnel anatomy, intrinsic hand weakness, Froment sign, and the ulnar paradox.
+3. **Radial nerve injury at the humeral shaft** — radial-groove anatomy and the extensor pattern associated with wrist drop.
+4. **Axillary nerve injury** — surgical-neck/anterior-dislocation relationships with deltoid and teres-minor deficits.
+5. **Supraspinatus tear** — rotator-cuff relationships, abduction weakness, and the role of cuff stabilization.
+6. **Scaphoid fracture** — anatomical-snuffbox relationships and the proximal-pole avascular-necrosis risk.
+
+In Clinical Cases mode, the primary lesion or focus is highlighted in red, affected structures in amber, and supporting context anatomy remains visible. Clinical metadata are stored separately in `src/data/clinicalCases.js`, allowing the teaching layer to evolve independently of geometry.
 
 ## Wrist & Hand Explorer
 
-The v0.2 hand phase introduces a complete 27-bone hand skeleton target plus clinically important muscles, tendons, vessels, and the flexor retinaculum.
+The wrist-and-hand phase introduces a complete 27-bone hand skeleton target plus clinically important muscles, tendons, vessels, and the flexor retinaculum.
 
 The six study views are:
 
@@ -86,17 +101,18 @@ The current bank spans shoulder, rotator cuff, arm, forearm, brachial plexus, wr
 
 ## Asset architecture
 
-Anatomica intentionally separates geometry, provenance, and medical knowledge:
+Anatomica intentionally separates geometry, provenance, medical knowledge, and clinical reasoning:
 
 ```text
 3D geometry          → public/models/
 Model provenance     → src/data/modelManifest.js
 Medical knowledge    → src/data/upperLimb.js
+Clinical cases       → src/data/clinicalCases.js
 Learning questions   → src/data/quizQuestions.js
 Rendering / modes    → src/main.js + src/engine/
 ```
 
-This makes it possible to replace or improve a mesh without rewriting the associated teaching content.
+This makes it possible to improve a mesh, teaching note, quiz, or clinical scenario without tightly coupling all four layers.
 
 ### BodyParts3D
 
@@ -108,7 +124,7 @@ Required attribution:
 
 The automated asset workflow resolves official FMA concepts through the BodyParts3D mapping tables, converts the selected OBJ geometry to browser-ready GLB, and commits generated assets into `public/models/upper-limb/`.
 
-See [`ASSETS.md`](ASSETS.md) for provenance, validation rules, and licensing details.
+See [`ASSETS.md`](ASSETS.md) for provenance and licensing details and [`docs/ANATOMY_VALIDATION.md`](docs/ANATOMY_VALIDATION.md) for the visual/anatomical sign-off checklist.
 
 ## Technology
 
@@ -116,8 +132,8 @@ See [`ASSETS.md`](ASSETS.md) for provenance, validation rules, and licensing det
 - **Vite** — development and production bundling
 - **JavaScript** — application and learning interactions
 - **glTF / GLB** — browser-ready anatomical geometry
-- **Structured JavaScript data** — medical knowledge, plexus, provenance, and quizzes
-- **GitHub Actions** — asset conversion, CI, and GitHub Pages deployment
+- **Structured JavaScript data** — anatomy, clinical cases, plexus, provenance, and quizzes
+- **GitHub Actions** — asset conversion, clinical-data validation, CI, and GitHub Pages deployment
 
 ## Project structure
 
@@ -128,6 +144,7 @@ Anatomica/
 ├── src/
 │   ├── data/
 │   │   ├── upperLimb.js            # Medical knowledge
+│   │   ├── clinicalCases.js        # Clinical scenario layer
 │   │   ├── brachialPlexus.js       # Plexus pathway data
 │   │   ├── quizQuestions.js        # Learning question bank
 │   │   ├── anatomyPalette.js       # System + structure color semantics
@@ -138,6 +155,10 @@ Anatomica/
 │   │   └── anatomyVisuals.js       # Model styling + legend
 │   ├── main.js
 │   └── style.css
+├── scripts/
+│   └── validate_clinical_cases.mjs # Clinical-data integrity check
+├── docs/
+│   └── ANATOMY_VALIDATION.md       # Visual/anatomical sign-off standard
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
 │   ├── ci.yml
@@ -166,11 +187,15 @@ Anatomica/
 - [x] Flexor retinaculum and palmar vascular asset target
 - [x] Wrist & Hand Explorer clinical views
 - [x] Expanded clinical Quiz Mode
+- [x] Clinical Cases explorer with lesion + affected-structure highlighting
+- [x] Automated clinical-case anatomy-key validation
+- [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
-- [ ] Visual anatomical validation of newly converted wrist/hand meshes before `ready` status
+- [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
+- [ ] Motor/sensory territory overlays for nerve lesions
+- [ ] Dynamic movement/deficit simulation for selected clinical cases
 - [ ] Production-quality median/ulnar/radial digital nerve geometry
 - [ ] Detailed brachial plexus roots/trunks/divisions/cord geometry
-- [ ] Dynamic clinical lesion simulation
 - [ ] Cadaver-style progressive layer removal
 - [ ] Lower limb
 - [ ] Thorax + cardiovascular physiology
@@ -182,7 +207,7 @@ Anatomica/
 
 ## Validation policy
 
-A converted GLB is **not automatically considered anatomically validated**. Anatomica keeps newly converted meshes in a pre-validation state until structure identity, orientation, scale, spatial relationships, and browser presentation are visually checked. Only then should an asset be marked `ready`.
+A converted GLB is **not automatically considered anatomically validated**. Anatomica keeps newly converted meshes in a pre-validation state until structure identity, laterality, orientation, scale, spatial relationships, interaction behavior, and browser presentation are visually checked. Only then should an asset receive a stronger validation claim.
 
 ## Educational scope
 
