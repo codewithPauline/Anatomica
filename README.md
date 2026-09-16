@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3.5 Adaptive Clinical Reasoning
+## Current milestone — v0.3.6 Persistent Mastery + Spaced Review
 
-Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, and adaptive clinical-localization sessions. Learners can choose a difficulty, work through shuffled vignettes, receive a 3D answer reveal, and finish with performance feedback that identifies missed nerve and lesion-level patterns.
+Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, adaptive clinical-localization sessions, and browser-local mastery tracking. Learners can choose a difficulty, work through shuffled vignettes, receive a 3D answer reveal, review performance across sessions, and return to concepts when spaced review is due.
 
 ### Working now
 
@@ -31,6 +31,7 @@ Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinic
 - **Lesion-Level Localizer with 10 proximal/distal localization patterns across the four nerve profiles**
 - **Motor Test Simulator with normal-versus-lesion comparison for 11 focused examination maneuvers**
 - **Adaptive Localization Challenge Mode with Easy / Intermediate / Advanced / Adaptive sessions, shuffled cases, per-nerve performance tracking, and post-answer 3D reveal**
+- **Persistent browser-local mastery tracking with spaced review, due-review sessions, per-nerve summaries, and learner-controlled data clearing**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
 - Clinical-content integrity validation in CI so cases, nerve profiles, lesion levels, motor tests, and localization challenges cannot silently reference missing content
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
@@ -103,7 +104,15 @@ At the end of a session, Anatomica reports overall accuracy, performance by peri
 
 This adaptation is deterministic rule-based tutoring logic, not a machine-learning model.
 
-See [`docs/LOCALIZATION_CHALLENGE_MODE.md`](docs/LOCALIZATION_CHALLENGE_MODE.md) for the assessment design, validation rules, and limitations, and [`docs/ADAPTIVE_CHALLENGE_SESSIONS.md`](docs/ADAPTIVE_CHALLENGE_SESSIONS.md) for the session engine and performance-summary behavior.
+### Persistent progress and spaced review
+
+v0.3.6 stores completed localization-session history **only in the learner's current browser** using `localStorage`. There is no account, server-side learner profile, or cloud synchronization.
+
+The progress engine tracks performance by peripheral nerve, lesion level, and individual challenge. Correct responses advance a transparent spaced-review schedule and missed responses reset that challenge to the earliest review stage. Review intervals are currently **1, 3, 7, 14, and 30 days**.
+
+The challenge panel shows completed-session count, cumulative accuracy, due-review count, and the current weakest practiced nerve. A **Review due** session pulls challenges whose review date has arrived; if nothing is due yet, the mode falls back to the full challenge bank. Learners can clear all saved progress at any time from the challenge panel.
+
+See [`docs/LOCALIZATION_CHALLENGE_MODE.md`](docs/LOCALIZATION_CHALLENGE_MODE.md) for the assessment design, [`docs/ADAPTIVE_CHALLENGE_SESSIONS.md`](docs/ADAPTIVE_CHALLENGE_SESSIONS.md) for the session engine, and [`docs/PERSISTENT_PROGRESS.md`](docs/PERSISTENT_PROGRESS.md) for browser storage, mastery summaries, and spaced-review behavior.
 
 ## Motor Test Simulator
 
@@ -232,6 +241,8 @@ Anatomica/
 │   │   ├── quizQuestions.js            # Learning question bank
 │   │   ├── anatomyPalette.js           # System + structure color semantics
 │   │   └── modelManifest.js            # Asset paths + provenance
+│   ├── learning/
+│   │   └── progressStore.js          # Browser-local mastery + spaced review
 │   ├── engine/
 │   │   ├── modelLoader.js              # Production GLB loader
 │   │   ├── realModelSwap.js            # Shared registration + fallback replacement
@@ -245,6 +256,7 @@ Anatomica/
 │   ├── LESION_LOCALIZATION.md          # Lesion-level reasoning model
 │   ├── LOCALIZATION_CHALLENGE_MODE.md  # Clinical reasoning assessment design
 │   ├── ADAPTIVE_CHALLENGE_SESSIONS.md  # Difficulty, shuffling + session feedback
+│   ├── PERSISTENT_PROGRESS.md            # Browser-local mastery + spaced review
 │   └── MOTOR_TEST_SIMULATOR.md         # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
@@ -280,7 +292,8 @@ Anatomica/
 - [x] Motor Test Simulator with lesion-level normal/spared/variable comparison
 - [x] Clinical Localization Challenge Mode with scored 3D answer reveal
 - [x] Adaptive challenge sessions with difficulty modes, shuffling, targeted follow-up, and performance summaries
-- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, and localization challenges
+- [x] Persistent browser-local learner progress with mastery summaries and spaced-review scheduling
+- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, and learner-progress storage
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
