@@ -1,0 +1,34 @@
+name: Apply Anatomica v0.3.2 Motor Test Patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-v032-motor-tests.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply patch
+        run: python scripts/patch_v032_motor_tests.py
+
+      - name: Remove one-time migration files
+        run: git rm .github/workflows/patch-v032-motor-tests.yml scripts/patch_v032_motor_tests.py
+
+      - name: Commit migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add motor test simulator"
+          git pull --rebase origin main
+          git push origin HEAD:main
