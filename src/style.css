@@ -298,3 +298,84 @@ h1 {
   .mode-badge { left: 12px; top: 12px; max-width: 80%; font-size: 10px; }
   .viewer-wrap::before { left: 12px; bottom: 12px; max-width: 55%; font-size: 8px; }
 }
+
+
+/* v0.3.4 clinical localization challenge */
+.challenge-accent {
+  border-color: #4a655e;
+  background: linear-gradient(180deg, #1c2c29, #172320);
+}
+.challenge-progress {
+  margin: 14px 0 6px;
+  color: #7f8b9a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.challenge-title {
+  display: block;
+  color: #edf2f7;
+  font-size: 17px;
+  line-height: 1.35;
+}
+.challenge-finding-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0 4px;
+}
+.challenge-finding-chips span {
+  padding: 7px 9px;
+  border: 1px solid #3e5060;
+  border-radius: 999px;
+  background: #16202a;
+  color: #c9d5df;
+  font-size: 11px;
+  font-weight: 700;
+}
+.challenge-answer-block {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #28313c;
+}
+.challenge-answer-block .section-label { margin-bottom: 8px; }
+.challenge-empty {
+  margin: 8px 0 0;
+  color: #778391;
+  font-size: 12px;
+}
+.challenge-submit { margin-top: 16px; }
+.challenge-submit:not(:disabled) {
+  border-color: #587b70;
+  background: #20342e;
+  color: #e2f2ec;
+}
+.challenge-feedback {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #3a4450;
+  border-radius: 12px;
+  background: #10161d;
+}
+.challenge-feedback > strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.challenge-feedback p {
+  margin: 6px 0 0;
+  color: #b9c4d0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.challenge-feedback.correct {
+  border-color: #315e45;
+  background: #112018;
+}
+.challenge-feedback.correct > strong { color: #cfe9d9; }
+.challenge-feedback.incorrect {
+  border-color: #68434a;
+  background: #211519;
+}
+.challenge-feedback.incorrect > strong { color: #ebccd1; }
