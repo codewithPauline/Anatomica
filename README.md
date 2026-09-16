@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3.6 Persistent Mastery + Spaced Review
+## Current milestone — v0.3.7 Longitudinal Mastery Dashboard
 
-Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, adaptive clinical-localization sessions, and browser-local mastery tracking. Learners can choose a difficulty, work through shuffled vignettes, receive a 3D answer reveal, review performance across sessions, and return to concepts when spaced review is due.
+Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, adaptive clinical-localization sessions, browser-local mastery tracking, and longitudinal learning analytics. Learners can choose a difficulty, work through shuffled vignettes, receive a 3D answer reveal, return for spaced review, and inspect progress across all 10 modeled lesion patterns in a dedicated mastery dashboard.
 
 ### Working now
 
@@ -32,8 +32,9 @@ Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinic
 - **Motor Test Simulator with normal-versus-lesion comparison for 11 focused examination maneuvers**
 - **Adaptive Localization Challenge Mode with Easy / Intermediate / Advanced / Adaptive sessions, shuffled cases, per-nerve performance tracking, and post-answer 3D reveal**
 - **Persistent browser-local mastery tracking with spaced review, due-review sessions, per-nerve summaries, and learner-controlled data clearing**
+- **Longitudinal Mastery Dashboard with recent-session accuracy, mastery states across all 10 lesion patterns, weakest-practiced concepts, momentum summaries, and direct due-review access**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-content integrity validation in CI so cases, nerve profiles, lesion levels, motor tests, and localization challenges cannot silently reference missing content
+- Clinical-content, learner-progress, and mastery-dashboard validation in CI so anatomy references, review scheduling, and learning-analytics summaries are checked automatically
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
@@ -113,6 +114,16 @@ The progress engine tracks performance by peripheral nerve, lesion level, and in
 The challenge panel shows completed-session count, cumulative accuracy, due-review count, and the current weakest practiced nerve. A **Review due** session pulls challenges whose review date has arrived; if nothing is due yet, the mode falls back to the full challenge bank. Learners can clear all saved progress at any time from the challenge panel.
 
 See [`docs/LOCALIZATION_CHALLENGE_MODE.md`](docs/LOCALIZATION_CHALLENGE_MODE.md) for the assessment design, [`docs/ADAPTIVE_CHALLENGE_SESSIONS.md`](docs/ADAPTIVE_CHALLENGE_SESSIONS.md) for the session engine, and [`docs/PERSISTENT_PROGRESS.md`](docs/PERSISTENT_PROGRESS.md) for browser storage, mastery summaries, and spaced-review behavior.
+
+### Longitudinal mastery dashboard
+
+v0.3.7 adds a dedicated **Mastery dashboard** that turns the browser-local progress record into a compact longitudinal view. It shows cumulative sessions and accuracy, spaced-review load, recent-session accuracy bars, recent momentum, mastery counts, all 10 lesion-pattern summaries, and the weakest practiced concepts.
+
+The four mastery labels are intentionally descriptive: **Unseen**, **Developing**, **Practicing**, and **Strong**. They are derived from the learner's own challenge history and are not validated measures of clinical competence. Recent momentum compares short windows of session accuracy and is shown only when enough completed sessions exist.
+
+A due-review action links the dashboard back into the existing spaced-review session, keeping the workflow connected: **measure → identify weakness → review → reassess**.
+
+See [`docs/MASTERY_DASHBOARD.md`](docs/MASTERY_DASHBOARD.md) for the analytics model, display rules, and limitations.
 
 ## Motor Test Simulator
 
@@ -199,6 +210,8 @@ Clinical cases          → src/data/clinicalCases.js
 Nerve + lesion data     → src/data/nerveDeficits.js
 Localization challenges → src/data/localizationChallenges.js
 Learning questions      → src/data/quizQuestions.js
+Learner progress        → src/learning/progressStore.js
+Mastery analytics       → src/learning/masteryDashboard.js
 Rendering / modes       → src/main.js + src/engine/
 ```
 
@@ -242,7 +255,8 @@ Anatomica/
 │   │   ├── anatomyPalette.js           # System + structure color semantics
 │   │   └── modelManifest.js            # Asset paths + provenance
 │   ├── learning/
-│   │   └── progressStore.js          # Browser-local mastery + spaced review
+│   │   ├── progressStore.js            # Browser-local mastery + spaced review
+│   │   └── masteryDashboard.js         # Longitudinal learning-analytics summaries
 │   ├── engine/
 │   │   ├── modelLoader.js              # Production GLB loader
 │   │   ├── realModelSwap.js            # Shared registration + fallback replacement
@@ -250,13 +264,16 @@ Anatomica/
 │   ├── main.js
 │   └── style.css
 ├── scripts/
-│   └── validate_clinical_cases.mjs     # Clinical-content integrity check
+│   ├── validate_clinical_cases.mjs     # Clinical-content integrity check
+│   ├── validate_progress_store.mjs     # Persistence + spaced-review validation
+│   └── validate_mastery_dashboard.mjs  # Dashboard analytics validation
 ├── docs/
 │   ├── ANATOMY_VALIDATION.md           # Visual/anatomical sign-off standard
 │   ├── LESION_LOCALIZATION.md          # Lesion-level reasoning model
 │   ├── LOCALIZATION_CHALLENGE_MODE.md  # Clinical reasoning assessment design
 │   ├── ADAPTIVE_CHALLENGE_SESSIONS.md  # Difficulty, shuffling + session feedback
-│   ├── PERSISTENT_PROGRESS.md            # Browser-local mastery + spaced review
+│   ├── PERSISTENT_PROGRESS.md          # Browser-local mastery + spaced review
+│   ├── MASTERY_DASHBOARD.md            # Longitudinal learning analytics
 │   └── MOTOR_TEST_SIMULATOR.md         # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
@@ -293,7 +310,8 @@ Anatomica/
 - [x] Clinical Localization Challenge Mode with scored 3D answer reveal
 - [x] Adaptive challenge sessions with difficulty modes, shuffling, targeted follow-up, and performance summaries
 - [x] Persistent browser-local learner progress with mastery summaries and spaced-review scheduling
-- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, and learner-progress storage
+- [x] Longitudinal Mastery Dashboard with recent-session trend, lesion-level mastery states, weakest concepts, and due-review access
+- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, and dashboard analytics
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
