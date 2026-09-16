@@ -129,6 +129,27 @@ app.innerHTML = `
           <div id="sensory-region-chips" class="sensory-region-chips"></div>
           <p>Educational territory summary only; not a patient-specific sensory map.</p>
         </div>
+        <div class="motor-simulator">
+          <div class="motor-sim-head">
+            <div>
+              <span class="section-label">Functional examination</span>
+              <strong>Motor Test Simulator</strong>
+            </div>
+            <span id="motor-test-state-pill" class="status-pill">Lesion pattern</span>
+          </div>
+          <p class="motor-sim-intro">Select an exam maneuver, then compare expected activation with the lesion pattern.</p>
+          <div id="motor-test-list" class="branch-list study-grid"></div>
+          <div class="motor-state-toggle" aria-label="Motor simulation state">
+            <button id="motor-normal-btn" class="tool" type="button">Normal activation</button>
+            <button id="motor-lesion-btn" class="tool active" type="button">Lesion pattern</button>
+          </div>
+          <div id="motor-test-readout" class="motor-test-readout">
+            <span id="motor-test-label" class="label"></span>
+            <strong id="motor-test-instruction"></strong>
+            <div><span>Expected response</span><b id="motor-test-response"></b></div>
+          </div>
+          <p class="simulator-note">Activation highlighting only. Anatomica does not deform unrigged anatomy to imitate movement.</p>
+        </div>
       </section>
 
       <section id="plexus-card" class="learning-card" hidden>
@@ -230,6 +251,8 @@ let clinicalMode = false;
 let activeClinicalCaseId = clinicalCases[0]?.id ?? null;
 let nerveDeficitMode = false;
 let activeNerveDeficitId = nerveDeficits[0]?.id ?? null;
+let activeMotorTestId = nerveDeficits[0]?.motorTests?.[0]?.id ?? null;
+let motorSimulationState = 'lesion';
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -805,6 +828,63 @@ nerveDeficits.forEach((item) => {
   nerveDeficitList.appendChild(button);
 });
 
+
+function motorTestById(item, testId) {
+  return item?.motorTests?.find((test) => test.id === testId) ?? item?.motorTests?.[0] ?? null;
+}
+
+function renderMotorTestButtons(item) {
+  const list = document.querySelector('#motor-test-list');
+  list.innerHTML = '';
+  (item.motorTests ?? []).forEach((test) => {
+    const button = document.createElement('button');
+    button.className = 'branch-button motor-test-button';
+    button.type = 'button';
+    button.dataset.testId = test.id;
+    button.innerHTML = `<b>${test.label}</b><span>Focus exam maneuver</span>`;
+    button.addEventListener('click', () => renderMotorTest(item, test.id, motorSimulationState, true));
+    list.appendChild(button);
+  });
+}
+
+function renderMotorTest(item, testId = activeMotorTestId, state = motorSimulationState, fit = true) {
+  const test = motorTestById(item, testId);
+  if (!item || !test) return;
+
+  activeMotorTestId = test.id;
+  motorSimulationState = state === 'normal' ? 'normal' : 'lesion';
+
+  document.querySelectorAll('.motor-test-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.testId === test.id);
+  });
+  document.querySelector('#motor-normal-btn').classList.toggle('active', motorSimulationState === 'normal');
+  document.querySelector('#motor-lesion-btn').classList.toggle('active', motorSimulationState === 'lesion');
+  document.querySelector('#motor-test-state-pill').textContent = motorSimulationState === 'normal' ? 'Normal activation' : 'Lesion pattern';
+  document.querySelector('#motor-test-label').textContent = test.label;
+  document.querySelector('#motor-test-instruction').textContent = test.instruction;
+  document.querySelector('#motor-test-response').textContent = motorSimulationState === 'normal' ? test.normal : test.deficit;
+  document.querySelector('#motor-test-readout').classList.toggle('normal', motorSimulationState === 'normal');
+  document.querySelector('#motor-test-readout').classList.toggle('lesion', motorSimulationState === 'lesion');
+
+  clearHighlight();
+  (item.motorKeys ?? []).forEach((key) => highlightStructure(key, 0x725333, 0.24));
+
+  if (motorSimulationState === 'normal') {
+    highlightStructure(item.nerveKey, 0x58759a, 0.55);
+    (test.targetKeys ?? []).forEach((key) => highlightStructure(key, 0x2d7c52, 0.98));
+  } else {
+    highlightStructure(item.nerveKey, 0x9e3346, 1.0);
+    (test.targetKeys ?? []).forEach((key) => highlightStructure(key, 0xa66d2e, 0.9));
+  }
+
+  setModeBadge(`Motor Test · ${item.name} · ${test.label} · ${motorSimulationState === 'normal' ? 'Normal' : 'Lesion'}`);
+
+  if (fit) {
+    const focusKeys = new Set([item.nerveKey, ...(test.targetKeys ?? [])]);
+    fitCameraToMeshes(allMeshes().filter((mesh) => focusKeys.has(mesh.userData.structureKey)), 1.35);
+  }
+}
+
 function renderNerveDeficit(id) {
   const item = nerveDeficitById(id);
   if (!item) return;
@@ -835,9 +915,11 @@ function renderNerveDeficit(id) {
   Object.entries(enabledSystems).forEach(([system, visible]) => setSystemVisibility(system, visible, false));
   allMeshes().forEach((mesh) => { mesh.visible = visibleKeys.has(mesh.userData.structureKey); });
 
-  clearHighlight();
-  (item.motorKeys ?? []).forEach((key) => highlightStructure(key, 0xa66d2e, 0.78));
-  highlightStructure(item.nerveKey, 0x9e3346, 1.0);
+  if (!(item.motorTests ?? []).some((test) => test.id === activeMotorTestId)) {
+    activeMotorTestId = item.motorTests?.[0]?.id ?? null;
+  }
+  renderMotorTestButtons(item);
+  renderMotorTest(item, activeMotorTestId, motorSimulationState, false);
 
   const nerveMesh = allMeshes().find((mesh) => mesh.userData.structureKey === item.nerveKey && mesh.visible);
   if (nerveMesh) {
@@ -845,7 +927,6 @@ function renderNerveDeficit(id) {
     renderInfo(item.nerveKey);
   }
 
-  setModeBadge(`Nerve Deficit · ${item.name}`);
   fitCameraToMeshes(allMeshes().filter((mesh) => visibleKeys.has(mesh.userData.structureKey)), item.padding ?? 1.22);
 }
 
@@ -861,6 +942,17 @@ document.querySelector('#nerve-deficit-btn').addEventListener('click', () => {
     setModeBadge('');
     fitCameraToAnatomy();
   }
+});
+
+
+document.querySelector('#motor-normal-btn').addEventListener('click', () => {
+  const item = nerveDeficitById(activeNerveDeficitId);
+  if (item) renderMotorTest(item, activeMotorTestId, 'normal', true);
+});
+
+document.querySelector('#motor-lesion-btn').addEventListener('click', () => {
+  const item = nerveDeficitById(activeNerveDeficitId);
+  if (item) renderMotorTest(item, activeMotorTestId, 'lesion', true);
 });
 
 const branchContainer = document.querySelector('#plexus-branches');
