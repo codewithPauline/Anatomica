@@ -1,3 +1,4 @@
+# One-time migration for the v0.3 clinical explorer.
 name: Patch Anatomica v0.3 Clinical Mode
 
 on:
