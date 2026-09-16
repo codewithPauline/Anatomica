@@ -19,10 +19,10 @@ jobs:
           fetch-depth: 0
 
       - name: Apply patch
-        run: python scripts/patch_v033_lesion_localization.py
+        run: python scripts/run_v033_lesion_localization.py
 
       - name: Remove one-time migration files
-        run: git rm .github/workflows/patch-v033-lesion-localization.yml scripts/patch_v033_lesion_localization.py
+        run: git rm .github/workflows/patch-v033-lesion-localization.yml scripts/patch_v033_lesion_localization.py scripts/run_v033_lesion_localization.py
 
       - name: Commit migration
         run: |
