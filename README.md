@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3.2 Clinical Intelligence + Functional Examination
+## Current milestone — v0.3.3 Clinical Intelligence + Lesion Localization
 
-Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, nerve-localization teaching, and focused motor examination. Learners can start from an injury pattern or a named peripheral nerve, then inspect the relevant anatomy, expected motor deficit, sensory territory, lesion sites, and examination maneuvers.
+Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, and focused motor examination. Learners can move from an injury pattern to a named nerve, compare proximal versus distal lesion sites, and test how the expected motor and sensory findings change with localization.
 
 ### Working now
 
@@ -28,9 +28,10 @@ Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinic
 - Wrist & Hand Explorer with six focused learning views
 - **Clinical Cases mode with lesion/focus anatomy, affected structures, expected deficits, exam clues, and case-specific camera framing**
 - **Nerve Deficit Explorer for median, ulnar, radial, and axillary nerves with motor-structure highlighting and schematic sensory territories**
+- **Lesion-Level Localizer with 10 proximal/distal localization patterns across the four nerve profiles**
 - **Motor Test Simulator with normal-versus-lesion comparison for 11 focused examination maneuvers**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-content integrity validation in CI so cases, nerve profiles, and motor tests cannot silently reference missing anatomy keys
+- Clinical-content integrity validation in CI so cases, nerve profiles, lesion levels, and motor tests cannot silently reference missing anatomy keys
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
@@ -54,12 +55,34 @@ Selecting a nerve narrows the 3D viewer to that nerve, its major motor targets r
 
 Sensory territories are currently presented as **schematic labeled regions**, not anatomically exact 3D skin maps. This keeps the educational distinction clear until validated cutaneous surface geometry is available.
 
+## Lesion-Level Localization
+
+v0.3.3 adds a localization ladder inside each nerve profile. The current build distinguishes 10 high-yield lesion patterns:
+
+- **Median nerve** — proximal median lesion, anterior interosseous lesion, carpal tunnel
+- **Ulnar nerve** — cubital tunnel, Guyon canal
+- **Radial nerve** — radial nerve in the axilla, radial groove, posterior interosseous nerve
+- **Axillary nerve** — surgical-neck/anterior-dislocation pattern, quadrangular-space pattern
+
+Each level stores affected motor structures, explicitly spared motor structures, regional context, a sensory pattern, and a localization clue. Changing the lesion level immediately changes how the Motor Test Simulator interprets the same maneuver.
+
+The current highlighting semantics are:
+
+- **Red** — involved nerve pathway
+- **Amber** — tested motor target expected to be impaired
+- **Green** — tested motor target expected to be spared
+- **Purple** — variable or branch-dependent involvement where a simple affected/spared claim would be misleading
+
+Some current muscles are represented as grouped teaching meshes even when their innervation is anatomically subdivided. For example, FDP has mixed median/AIN and ulnar innervation. In these cases, highlighting represents the relevant functional component conceptually rather than claiming the entire grouped mesh belongs to one nerve.
+
+See [`docs/LESION_LOCALIZATION.md`](docs/LESION_LOCALIZATION.md) for the localization model and limitations.
+
 ## Motor Test Simulator
 
-v0.3.2 adds a functional-examination workflow inside the Nerve Deficit Explorer. Each nerve profile contains focused motor tests that can be viewed in two states:
+The functional-examination workflow sits inside the Nerve Deficit Explorer. Each nerve profile contains focused motor tests that can be viewed in two states:
 
 - **Normal activation** — the selected motor targets are highlighted in green with the expected normal response.
-- **Lesion pattern** — the involved nerve is highlighted in red, the selected motor targets in amber, and the expected deficit is shown.
+- **Lesion pattern** — the selected lesion level determines which test targets are impaired, spared, or variably involved.
 
 The current simulator includes 11 maneuvers:
 
@@ -136,12 +159,12 @@ Anatomica intentionally separates geometry, provenance, medical knowledge, and c
 Model provenance     → src/data/modelManifest.js
 Medical knowledge    → src/data/upperLimb.js
 Clinical cases       → src/data/clinicalCases.js
-Nerve deficits       → src/data/nerveDeficits.js
+Nerve + lesion data  → src/data/nerveDeficits.js
 Learning questions   → src/data/quizQuestions.js
 Rendering / modes    → src/main.js + src/engine/
 ```
 
-This makes it possible to improve a mesh, teaching note, quiz, clinical scenario, nerve profile, or motor test without tightly coupling those layers.
+This makes it possible to improve a mesh, teaching note, quiz, clinical scenario, nerve profile, lesion-level pattern, or motor test without tightly coupling those layers.
 
 ### BodyParts3D
 
@@ -161,7 +184,7 @@ See [`ASSETS.md`](ASSETS.md) for provenance and licensing details and [`docs/ANA
 - **Vite** — development and production bundling
 - **JavaScript** — application and learning interactions
 - **glTF / GLB** — browser-ready anatomical geometry
-- **Structured JavaScript data** — anatomy, clinical cases, nerve deficits, motor tests, plexus, provenance, and quizzes
+- **Structured JavaScript data** — anatomy, clinical cases, nerve deficits, lesion levels, motor tests, plexus, provenance, and quizzes
 - **GitHub Actions** — asset conversion, clinical-data validation, CI, and GitHub Pages deployment
 
 ## Project structure
@@ -174,7 +197,7 @@ Anatomica/
 │   ├── data/
 │   │   ├── upperLimb.js            # Medical knowledge
 │   │   ├── clinicalCases.js        # Clinical scenario layer
-│   │   ├── nerveDeficits.js        # Nerve profiles + motor tests
+│   │   ├── nerveDeficits.js        # Nerve profiles + lesion levels + motor tests
 │   │   ├── brachialPlexus.js       # Plexus pathway data
 │   │   ├── quizQuestions.js        # Learning question bank
 │   │   ├── anatomyPalette.js       # System + structure color semantics
@@ -189,6 +212,7 @@ Anatomica/
 │   └── validate_clinical_cases.mjs # Clinical-content integrity check
 ├── docs/
 │   ├── ANATOMY_VALIDATION.md       # Visual/anatomical sign-off standard
+│   ├── LESION_LOCALIZATION.md      # Lesion-level reasoning model
 │   └── MOTOR_TEST_SIMULATOR.md     # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
@@ -220,8 +244,9 @@ Anatomica/
 - [x] Expanded clinical Quiz Mode
 - [x] Clinical Cases explorer with lesion + affected-structure highlighting
 - [x] Nerve Deficit Explorer with motor-target highlighting and schematic sensory territories
-- [x] Motor Test Simulator with normal-versus-lesion comparison
-- [x] Automated clinical-content and motor-test anatomy-key validation
+- [x] Lesion-Level Localizer for proximal-versus-distal peripheral-nerve patterns
+- [x] Motor Test Simulator with lesion-level normal/spared/variable comparison
+- [x] Automated clinical-content, lesion-level, and motor-test anatomy-key validation
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
