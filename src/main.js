@@ -5,6 +5,7 @@ import { modelManifest } from './data/modelManifest.js';
 import { brachialPlexus } from './data/brachialPlexus.js';
 import { quizQuestions } from './data/quizQuestions.js';
 import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';
+import { nerveDeficits, nerveDeficitById, nerveDeficitKeys } from './data/nerveDeficits.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -46,6 +47,7 @@ app.innerHTML = `
         <button id="forearm-btn" class="tool">Forearm</button>
         <button id="hand-btn" class="tool">Wrist & hand</button>
         <button id="clinical-btn" class="tool clinical-accent">Clinical cases</button>
+        <button id="nerve-deficit-btn" class="tool nerve-accent">Nerve deficits</button>
         <button id="plexus-btn" class="tool">Brachial plexus</button>
         <button id="quiz-btn" class="tool accent">Quiz mode</button>
       </section>
@@ -101,6 +103,31 @@ app.innerHTML = `
           <div><span>Expected deficit</span><b id="clinical-deficit"></b></div>
           <div><span>Exam clue</span><b id="clinical-exam"></b></div>
           <div class="clinical-pearl"><span>Clinical pearl</span><b id="clinical-pearl"></b></div>
+        </div>
+      </section>
+
+      <section id="nerve-deficit-card" class="learning-card" hidden>
+        <div class="card-head">
+          <div>
+            <span class="label">Neurologic localization</span>
+            <strong>Nerve deficit explorer</strong>
+          </div>
+          <span class="status-pill">${nerveDeficits.length} nerves</span>
+        </div>
+        <p id="nerve-deficit-subtitle" class="quiz-prompt">Choose a nerve to connect motor loss, sensory territory, lesion sites, and examination.</p>
+        <div id="nerve-deficit-list" class="branch-list study-grid"></div>
+        <div class="details nerve-deficit-details" aria-live="polite">
+          <div><span>Roots</span><b id="nerve-deficit-roots"></b></div>
+          <div><span>Motor pattern</span><b id="nerve-deficit-motor"></b></div>
+          <div><span>Sensory territory</span><b id="nerve-deficit-sensory"></b></div>
+          <div><span>Common lesion sites</span><b id="nerve-deficit-sites"></b></div>
+          <div><span>Exam</span><b id="nerve-deficit-exam"></b></div>
+          <div class="clinical-pearl"><span>Clinical pearl</span><b id="nerve-deficit-pearl"></b></div>
+        </div>
+        <div class="sensory-schematic">
+          <span class="section-label">Sensory map · schematic</span>
+          <div id="sensory-region-chips" class="sensory-region-chips"></div>
+          <p>Educational territory summary only; not a patient-specific sensory map.</p>
         </div>
       </section>
 
@@ -201,6 +228,8 @@ let handMode = false;
 let handView = 'skeleton';
 let clinicalMode = false;
 let activeClinicalCaseId = clinicalCases[0]?.id ?? null;
+let nerveDeficitMode = false;
+let activeNerveDeficitId = nerveDeficits[0]?.id ?? null;
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -415,6 +444,11 @@ function deactivateStudyModes(except = '') {
     clinicalMode = false;
     document.querySelector('#clinical-btn').classList.remove('active');
     document.querySelector('#clinical-card').hidden = true;
+  }
+  if (except !== 'nerve-deficit') {
+    nerveDeficitMode = false;
+    document.querySelector('#nerve-deficit-btn').classList.remove('active');
+    document.querySelector('#nerve-deficit-card').hidden = true;
   }
   if (except !== 'plexus') {
     plexusMode = false;
@@ -759,6 +793,76 @@ document.querySelector('#clinical-btn').addEventListener('click', () => {
   }
 });
 
+
+const nerveDeficitList = document.querySelector('#nerve-deficit-list');
+nerveDeficits.forEach((item) => {
+  const button = document.createElement('button');
+  button.className = 'branch-button nerve-deficit-button';
+  button.type = 'button';
+  button.dataset.nerveId = item.id;
+  button.innerHTML = `<b>${item.name}</b><span>${item.roots}</span>`;
+  button.addEventListener('click', () => renderNerveDeficit(item.id));
+  nerveDeficitList.appendChild(button);
+});
+
+function renderNerveDeficit(id) {
+  const item = nerveDeficitById(id);
+  if (!item) return;
+  activeNerveDeficitId = item.id;
+
+  document.querySelectorAll('.nerve-deficit-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.nerveId === item.id);
+  });
+
+  document.querySelector('#nerve-deficit-subtitle').textContent = item.subtitle;
+  document.querySelector('#nerve-deficit-roots').textContent = item.roots;
+  document.querySelector('#nerve-deficit-motor').textContent = item.motorSummary;
+  document.querySelector('#nerve-deficit-sensory').textContent = item.sensorySummary;
+  document.querySelector('#nerve-deficit-sites').textContent = item.lesionSites;
+  document.querySelector('#nerve-deficit-exam').textContent = item.exam;
+  document.querySelector('#nerve-deficit-pearl').textContent = item.pearl;
+  document.querySelector('#sensory-region-chips').innerHTML = (item.sensoryRegions ?? [])
+    .map((region) => `<span>${region}</span>`)
+    .join('');
+
+  const visibleKeys = new Set(nerveDeficitKeys(item));
+  const enabledSystems = { skeleton: false, muscles: false, nerves: false, vessels: false, ligaments: false };
+  allMeshes().forEach((mesh) => {
+    if (visibleKeys.has(mesh.userData.structureKey) && enabledSystems[mesh.userData.system] != null) {
+      enabledSystems[mesh.userData.system] = true;
+    }
+  });
+  Object.entries(enabledSystems).forEach(([system, visible]) => setSystemVisibility(system, visible, false));
+  allMeshes().forEach((mesh) => { mesh.visible = visibleKeys.has(mesh.userData.structureKey); });
+
+  clearHighlight();
+  (item.motorKeys ?? []).forEach((key) => highlightStructure(key, 0xa66d2e, 0.78));
+  highlightStructure(item.nerveKey, 0x9e3346, 1.0);
+
+  const nerveMesh = allMeshes().find((mesh) => mesh.userData.structureKey === item.nerveKey && mesh.visible);
+  if (nerveMesh) {
+    selectedMesh = nerveMesh;
+    renderInfo(item.nerveKey);
+  }
+
+  setModeBadge(`Nerve Deficit · ${item.name}`);
+  fitCameraToMeshes(allMeshes().filter((mesh) => visibleKeys.has(mesh.userData.structureKey)), item.padding ?? 1.22);
+}
+
+document.querySelector('#nerve-deficit-btn').addEventListener('click', () => {
+  const nextState = !nerveDeficitMode;
+  deactivateStudyModes('nerve-deficit');
+  nerveDeficitMode = nextState;
+  document.querySelector('#nerve-deficit-btn').classList.toggle('active', nerveDeficitMode);
+  document.querySelector('#nerve-deficit-card').hidden = !nerveDeficitMode;
+  if (nerveDeficitMode) renderNerveDeficit(activeNerveDeficitId);
+  else {
+    restoreAll();
+    setModeBadge('');
+    fitCameraToAnatomy();
+  }
+});
+
 const branchContainer = document.querySelector('#plexus-branches');
 brachialPlexus.terminalBranches.forEach((branch) => {
   const button = document.createElement('button');
@@ -867,6 +971,8 @@ hydrateRealModels({
         mesh.visible = handVisibleSet(handView).has(structureKey);
       } else if (clinicalMode) {
         mesh.visible = new Set(clinicalCaseKeys(clinicalCaseById(activeClinicalCaseId))).has(structureKey);
+      } else if (nerveDeficitMode) {
+        mesh.visible = new Set(nerveDeficitKeys(nerveDeficitById(activeNerveDeficitId))).has(structureKey);
       } else {
         mesh.visible = systemVisibility[item.system] ?? false;
       }
@@ -877,7 +983,8 @@ hydrateRealModels({
     if (selectedMesh?.userData?.structureKey === structureKey) setSelected(meshes[0]);
   },
 }).then(() => {
-  if (clinicalMode) renderClinicalCase(activeClinicalCaseId);
+  if (nerveDeficitMode) renderNerveDeficit(activeNerveDeficitId);
+  else if (clinicalMode) renderClinicalCase(activeClinicalCaseId);
   else if (handMode) renderHandView(handView);
   else if (forearmMode) renderForearmCompartment(forearmCompartment);
   else fitCameraToAnatomy();
