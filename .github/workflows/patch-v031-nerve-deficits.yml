@@ -28,7 +28,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/main.js src/style.css package.json .github/workflows/patch-v031-nerve-deficits.yml scripts/patch_v03_nerve_deficits.py
+          git add -A
           git commit -m "feat: add nerve deficit explorer"
           git pull --rebase origin main
           git push origin HEAD:main
