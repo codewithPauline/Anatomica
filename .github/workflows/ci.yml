@@ -24,8 +24,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Validate clinical cases
+      - name: Validate clinical content
         run: npm run validate:clinical
+
+      - name: Validate learner progress store
+        run: npm run validate:progress
 
       - name: Build
         run: npm run build
