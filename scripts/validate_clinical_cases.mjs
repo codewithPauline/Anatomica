@@ -1,5 +1,5 @@
 import { clinicalCases, clinicalCaseKeys } from '../src/data/clinicalCases.js';
-import { localizationChallenges } from '../src/data/localizationChallenges.js';
+import { localizationChallenges, challengeDifficulties } from '../src/data/localizationChallenges.js';
 import { nerveDeficits, nerveDeficitKeys, lesionLevelById } from '../src/data/nerveDeficits.js';
 import { upperLimbStructures } from '../src/data/upperLimb.js';
 
@@ -133,6 +133,9 @@ for (const challenge of localizationChallenges) {
   if (!challenge.title) errors.push(`${challenge.id ?? 'unknown'} is missing a title.`);
   if (!challenge.stem) errors.push(`${challenge.id ?? 'unknown'} is missing a clinical stem.`);
   if (!challenge.explanation) errors.push(`${challenge.id ?? 'unknown'} is missing an explanation.`);
+  if (!challengeDifficulties.includes(challenge.difficulty)) {
+    errors.push(`${challenge.id ?? 'unknown'} has invalid difficulty: ${challenge.difficulty}`);
+  }
   if (!Array.isArray(challenge.findings) || challenge.findings.length < 2) {
     errors.push(`${challenge.id ?? 'unknown'} must define at least two findings.`);
   }
@@ -149,6 +152,12 @@ for (const challenge of localizationChallenges) {
   }
 }
 
+for (const difficulty of challengeDifficulties) {
+  if (!localizationChallenges.some((challenge) => challenge.difficulty === difficulty)) {
+    errors.push(`No localization challenges are assigned to difficulty: ${difficulty}`);
+  }
+}
+
 if (errors.length) {
   console.error('Clinical content validation failed:');
   for (const error of errors) console.error(`- ${error}`);
@@ -157,4 +166,8 @@ if (errors.length) {
 
 const motorTestCount = nerveDeficits.reduce((sum, item) => sum + (item.motorTests?.length ?? 0), 0);
 const lesionLevelCount = nerveDeficits.reduce((sum, item) => sum + (item.lesionLevels?.length ?? 0), 0);
-console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${lesionLevelCount} lesion levels, ${motorTestCount} motor tests, ${localizationChallenges.length} localization challenges, and all referenced anatomy keys.`);
+const difficultyCounts = Object.fromEntries(challengeDifficulties.map((difficulty) => [
+  difficulty,
+  localizationChallenges.filter((challenge) => challenge.difficulty === difficulty).length,
+]));
+console.log(`Validated ${clinicalCases.length} clinical cases, ${nerveDeficits.length} nerve deficit profiles, ${lesionLevelCount} lesion levels, ${motorTestCount} motor tests, ${localizationChallenges.length} localization challenges (${difficultyCounts.easy} easy / ${difficultyCounts.intermediate} intermediate / ${difficultyCounts.advanced} advanced), and all referenced anatomy keys.`);
