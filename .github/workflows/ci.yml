@@ -30,5 +30,8 @@ jobs:
       - name: Validate learner progress store
         run: npm run validate:progress
 
+      - name: Validate mastery dashboard
+        run: npm run validate:mastery
+
       - name: Build
         run: npm run build
