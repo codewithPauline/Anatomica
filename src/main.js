@@ -5,7 +5,7 @@ import { modelManifest } from './data/modelManifest.js';
 import { brachialPlexus } from './data/brachialPlexus.js';
 import { quizQuestions } from './data/quizQuestions.js';
 import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';
-import { nerveDeficits, nerveDeficitById, nerveDeficitKeys } from './data/nerveDeficits.js';
+import { nerveDeficits, nerveDeficitById, nerveDeficitKeys, lesionLevelById } from './data/nerveDeficits.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -129,6 +129,23 @@ app.innerHTML = `
           <div id="sensory-region-chips" class="sensory-region-chips"></div>
           <p>Educational territory summary only; not a patient-specific sensory map.</p>
         </div>
+        <div class="lesion-localizer">
+          <div class="motor-sim-head">
+            <div>
+              <span class="section-label">Lesion localization</span>
+              <strong>Where is the nerve injured?</strong>
+            </div>
+            <span id="lesion-level-pill" class="status-pill">Select level</span>
+          </div>
+          <p class="motor-sim-intro">Compare proximal and distal lesion patterns using structures represented in the current Anatomica build.</p>
+          <div id="lesion-level-list" class="branch-list"></div>
+          <div class="details lesion-level-details" aria-live="polite">
+            <div><span>Motor pattern</span><b id="lesion-level-motor"></b></div>
+            <div><span>Sensory pattern</span><b id="lesion-level-sensory"></b></div>
+            <div class="clinical-pearl"><span>Localization clue</span><b id="lesion-level-clue"></b></div>
+          </div>
+          <p class="simulator-note">Localization patterns are educational simplifications; exact findings depend on fascicular anatomy and lesion severity.</p>
+        </div>
         <div class="motor-simulator">
           <div class="motor-sim-head">
             <div>
@@ -251,6 +268,7 @@ let clinicalMode = false;
 let activeClinicalCaseId = clinicalCases[0]?.id ?? null;
 let nerveDeficitMode = false;
 let activeNerveDeficitId = nerveDeficits[0]?.id ?? null;
+let activeLesionLevelId = nerveDeficits[0]?.lesionLevels?.[0]?.id ?? null;
 let activeMotorTestId = nerveDeficits[0]?.motorTests?.[0]?.id ?? null;
 let motorSimulationState = 'lesion';
 let quizMode = false;
@@ -833,6 +851,50 @@ function motorTestById(item, testId) {
   return item?.motorTests?.find((test) => test.id === testId) ?? item?.motorTests?.[0] ?? null;
 }
 
+function lesionLevelFocusKeys(item, level) {
+  return new Set([
+    item?.nerveKey,
+    ...(level?.affectedMotorKeys ?? []),
+    ...(level?.sparedMotorKeys ?? []),
+    ...(level?.contextKeys ?? []),
+  ].filter(Boolean));
+}
+
+function renderLesionLevelButtons(item) {
+  const list = document.querySelector('#lesion-level-list');
+  list.innerHTML = '';
+  (item.lesionLevels ?? []).forEach((level) => {
+    const button = document.createElement('button');
+    button.className = 'branch-button lesion-level-button';
+    button.type = 'button';
+    button.dataset.levelId = level.id;
+    button.innerHTML = `<b>${level.label}</b><span>${level.subtitle}</span>`;
+    button.addEventListener('click', () => renderLesionLevel(item, level.id, true));
+    list.appendChild(button);
+  });
+}
+
+function renderLesionLevel(item, levelId = activeLesionLevelId, fit = true) {
+  const level = lesionLevelById(item, levelId);
+  if (!item || !level) return;
+  activeLesionLevelId = level.id;
+
+  document.querySelectorAll('.lesion-level-button').forEach((button) => {
+    button.classList.toggle('active', button.dataset.levelId === level.id);
+  });
+  document.querySelector('#lesion-level-pill').textContent = level.label;
+  document.querySelector('#lesion-level-motor').textContent = level.motor;
+  document.querySelector('#lesion-level-sensory').textContent = level.sensory;
+  document.querySelector('#lesion-level-clue').textContent = level.localization;
+
+  renderMotorTest(item, activeMotorTestId, motorSimulationState, false);
+
+  if (fit) {
+    const focusKeys = lesionLevelFocusKeys(item, level);
+    fitCameraToMeshes(allMeshes().filter((mesh) => focusKeys.has(mesh.userData.structureKey)), item.padding ?? 1.24);
+  }
+}
+
 function renderMotorTestButtons(item) {
   const list = document.querySelector('#motor-test-list');
   list.innerHTML = '';
@@ -849,7 +911,8 @@ function renderMotorTestButtons(item) {
 
 function renderMotorTest(item, testId = activeMotorTestId, state = motorSimulationState, fit = true) {
   const test = motorTestById(item, testId);
-  if (!item || !test) return;
+  const level = lesionLevelById(item, activeLesionLevelId);
+  if (!item || !test || !level) return;
 
   activeMotorTestId = test.id;
   motorSimulationState = state === 'normal' ? 'normal' : 'lesion';
@@ -862,25 +925,47 @@ function renderMotorTest(item, testId = activeMotorTestId, state = motorSimulati
   document.querySelector('#motor-test-state-pill').textContent = motorSimulationState === 'normal' ? 'Normal activation' : 'Lesion pattern';
   document.querySelector('#motor-test-label').textContent = test.label;
   document.querySelector('#motor-test-instruction').textContent = test.instruction;
-  document.querySelector('#motor-test-response').textContent = motorSimulationState === 'normal' ? test.normal : test.deficit;
   document.querySelector('#motor-test-readout').classList.toggle('normal', motorSimulationState === 'normal');
   document.querySelector('#motor-test-readout').classList.toggle('lesion', motorSimulationState === 'lesion');
 
+  const affected = new Set(level.affectedMotorKeys ?? []);
+  const spared = new Set(level.sparedMotorKeys ?? []);
+  const targetKeys = test.targetKeys ?? [];
+  const affectedTargets = targetKeys.filter((key) => affected.has(key));
+  const sparedTargets = targetKeys.filter((key) => spared.has(key));
+  const variableTargets = targetKeys.filter((key) => !affected.has(key) && !spared.has(key));
+
+  let response = test.normal;
+  if (motorSimulationState === 'lesion') {
+    if (affectedTargets.length === targetKeys.length && targetKeys.length > 0) {
+      response = test.deficit;
+    } else if (affectedTargets.length > 0) {
+      response = `Partially affected at ${level.label}: ${test.deficit} Some tested targets are spared or variably involved.`;
+    } else if (sparedTargets.length === targetKeys.length && targetKeys.length > 0) {
+      response = `Expected to be preserved at ${level.label}. ${test.normal}`;
+    } else {
+      response = `May be variably affected at ${level.label}; exact branch anatomy and lesion position matter.`;
+    }
+  }
+  document.querySelector('#motor-test-response').textContent = response;
+
   clearHighlight();
-  (item.motorKeys ?? []).forEach((key) => highlightStructure(key, 0x725333, 0.24));
+  (item.motorKeys ?? []).forEach((key) => highlightStructure(key, 0x725333, 0.22));
 
   if (motorSimulationState === 'normal') {
     highlightStructure(item.nerveKey, 0x58759a, 0.55);
-    (test.targetKeys ?? []).forEach((key) => highlightStructure(key, 0x2d7c52, 0.98));
+    targetKeys.forEach((key) => highlightStructure(key, 0x2d7c52, 0.98));
   } else {
     highlightStructure(item.nerveKey, 0x9e3346, 1.0);
-    (test.targetKeys ?? []).forEach((key) => highlightStructure(key, 0xa66d2e, 0.9));
+    affectedTargets.forEach((key) => highlightStructure(key, 0xa66d2e, 0.92));
+    sparedTargets.forEach((key) => highlightStructure(key, 0x2d7c52, 0.88));
+    variableTargets.forEach((key) => highlightStructure(key, 0x6b587e, 0.72));
   }
 
-  setModeBadge(`Motor Test · ${item.name} · ${test.label} · ${motorSimulationState === 'normal' ? 'Normal' : 'Lesion'}`);
+  setModeBadge(`Motor Test · ${item.name} · ${level.label} · ${test.label} · ${motorSimulationState === 'normal' ? 'Normal' : 'Lesion'}`);
 
   if (fit) {
-    const focusKeys = new Set([item.nerveKey, ...(test.targetKeys ?? [])]);
+    const focusKeys = new Set([item.nerveKey, ...targetKeys, ...(level.contextKeys ?? [])]);
     fitCameraToMeshes(allMeshes().filter((mesh) => focusKeys.has(mesh.userData.structureKey)), 1.35);
   }
 }
@@ -915,11 +1000,15 @@ function renderNerveDeficit(id) {
   Object.entries(enabledSystems).forEach(([system, visible]) => setSystemVisibility(system, visible, false));
   allMeshes().forEach((mesh) => { mesh.visible = visibleKeys.has(mesh.userData.structureKey); });
 
+  if (!(item.lesionLevels ?? []).some((level) => level.id === activeLesionLevelId)) {
+    activeLesionLevelId = item.lesionLevels?.[0]?.id ?? null;
+  }
   if (!(item.motorTests ?? []).some((test) => test.id === activeMotorTestId)) {
     activeMotorTestId = item.motorTests?.[0]?.id ?? null;
   }
+  renderLesionLevelButtons(item);
   renderMotorTestButtons(item);
-  renderMotorTest(item, activeMotorTestId, motorSimulationState, false);
+  renderLesionLevel(item, activeLesionLevelId, false);
 
   const nerveMesh = allMeshes().find((mesh) => mesh.userData.structureKey === item.nerveKey && mesh.visible);
   if (nerveMesh) {
@@ -927,7 +1016,9 @@ function renderNerveDeficit(id) {
     renderInfo(item.nerveKey);
   }
 
-  fitCameraToMeshes(allMeshes().filter((mesh) => visibleKeys.has(mesh.userData.structureKey)), item.padding ?? 1.22);
+  const level = lesionLevelById(item, activeLesionLevelId);
+  const focusKeys = lesionLevelFocusKeys(item, level);
+  fitCameraToMeshes(allMeshes().filter((mesh) => focusKeys.has(mesh.userData.structureKey)), item.padding ?? 1.22);
 }
 
 document.querySelector('#nerve-deficit-btn').addEventListener('click', () => {

@@ -172,6 +172,23 @@ h1 {
 .sensory-region-chips { display: flex; flex-wrap: wrap; gap: 7px; }
 .sensory-region-chips span { padding: 7px 9px; border: 1px solid #66557c; border-radius: 999px; background: #241d31; color: #dccfee; font-size: 11px; font-weight: 700; }
 .sensory-schematic p { margin: 10px 0 0; color: #7f8997; font-size: 11px; line-height: 1.45; }
+
+.lesion-localizer {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #3e4858;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #141a23, #10151c);
+}
+.lesion-localizer .branch-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.lesion-level-details { margin-top: 14px; }
+.lesion-level-details .clinical-pearl { border-top-color: #4a5740; }
+.lesion-level-details .clinical-pearl b { color: #d7e2c8; }
+.lesion-level-button.active {
+  border-color: #7b9369;
+  background: linear-gradient(180deg, #263326, #1b281d);
+}
+
 .motor-simulator { margin-top: 16px; padding: 14px; border: 1px solid #334154; border-radius: 14px; background: #101720; }
 .motor-sim-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .motor-sim-head .section-label { margin-bottom: 5px; }
