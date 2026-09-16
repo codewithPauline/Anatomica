@@ -1,6 +1,6 @@
 {
   "name": "anatomica",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "validate:clinical": "node scripts/validate_clinical_cases.mjs",
+    "validate:progress": "node scripts/validate_progress_store.mjs",
+    "validate": "npm run validate:clinical && npm run validate:progress",
     "assets:extract": "python scripts/prepare_bodyparts3d.py",
     "assets:build": "python scripts/prepare_bodyparts3d.py --convert"
   },
