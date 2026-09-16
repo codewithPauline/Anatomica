@@ -1,0 +1,34 @@
+name: Apply Anatomica v0.3.8 Targeted Remediation Patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-v038-targeted-remediation.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply patch
+        run: python scripts/patch_v038_targeted_remediation.py
+
+      - name: Remove one-time migration files
+        run: git rm .github/workflows/patch-v038-targeted-remediation.yml scripts/patch_v038_targeted_remediation.py
+
+      - name: Commit migration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add targeted mastery remediation"
+          git pull --rebase origin main
+          git push origin HEAD:main
