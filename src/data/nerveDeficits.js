@@ -15,8 +15,47 @@ export const nerveDeficits = [
     sensorySummary: 'Palmar lateral 3½ digits; distal dorsal tips of those digits. Thenar-eminence sensation may be spared in carpal tunnel syndrome.',
     sensoryRegions: ['Thumb', 'Index', 'Middle', 'Radial ½ ring'],
     exam: 'Test thumb opposition/abduction, forearm pronation, and the “OK” sign when anterior interosseous involvement is suspected.',
-    lesionSites: 'Supracondylar region · pronator area · carpal tunnel',
+    lesionSites: 'Proximal median nerve · anterior interosseous branch · carpal tunnel',
     pearl: 'A wrist-level lesion can spare forearm flexors and palmar-cutaneous sensation while weakening thenar function.',
+    lesionLevels: [
+      {
+        id: 'proximal',
+        label: 'Proximal median lesion',
+        subtitle: 'Arm / proximal forearm',
+        affectedMotorKeys: [
+          'pronatorTeres', 'flexorCarpiRadialis', 'flexorDigitorumSuperficialis',
+          'flexorDigitorumProfundus', 'flexorPollicisLongus', 'pronatorQuadratus',
+          'abductorPollicisBrevis', 'opponensPollicis', 'flexorPollicisBrevis',
+        ],
+        sparedMotorKeys: [],
+        sensory: 'Lateral palmar digits can be affected, and palmar-cutaneous sensation may also be involved because the lesion is proximal to the wrist branch point.',
+        motor: 'Pronation, selected wrist/finger flexion, AIN-dependent pinch, and thenar function may all be impaired.',
+        localization: 'A combined forearm-flexor/AIN/thenar pattern localizes proximal to the carpal tunnel.',
+        contextKeys: ['humerus', 'radius', 'ulna'],
+      },
+      {
+        id: 'ain',
+        label: 'Anterior interosseous lesion',
+        subtitle: 'Pure motor branch pattern',
+        affectedMotorKeys: ['flexorPollicisLongus', 'flexorDigitorumProfundus', 'pronatorQuadratus'],
+        sparedMotorKeys: ['pronatorTeres', 'flexorCarpiRadialis', 'abductorPollicisBrevis', 'opponensPollicis'],
+        sensory: 'No cutaneous sensory loss is expected because the anterior interosseous nerve is a motor branch.',
+        motor: 'The classic high-yield deficit is impaired thumb IP and index DIP flexion, producing an abnormal “OK” sign.',
+        localization: 'Abnormal tip-to-tip pinch with preserved thenar sensation/function points toward the anterior interosseous branch.',
+        contextKeys: ['radius', 'ulna'],
+      },
+      {
+        id: 'carpal-tunnel',
+        label: 'Carpal tunnel',
+        subtitle: 'Median nerve at the wrist',
+        affectedMotorKeys: ['abductorPollicisBrevis', 'opponensPollicis', 'flexorPollicisBrevis'],
+        sparedMotorKeys: ['pronatorTeres', 'flexorCarpiRadialis', 'flexorDigitorumSuperficialis', 'flexorPollicisLongus', 'pronatorQuadratus'],
+        sensory: 'Palmar lateral 3½ digits may be symptomatic; sensation over the thenar eminence is often spared because the palmar cutaneous branch arises proximal to the tunnel.',
+        motor: 'Thenar weakness can impair thumb opposition and palmar abduction while proximal forearm motor function remains intact.',
+        localization: 'Thenar weakness plus lateral-digit symptoms with preserved proximal median motor function supports a wrist-level lesion.',
+        contextKeys: ['flexorRetinaculum', 'scaphoid', 'lunate', 'trapezium'],
+      },
+    ],
     motorTests: [
       {
         id: 'opposition',
@@ -61,8 +100,36 @@ export const nerveDeficits = [
     sensorySummary: 'Little finger and ulnar half of the ring finger, with adjacent ulnar palm/dorsum depending on branch level.',
     sensoryRegions: ['Ulnar ½ ring', 'Little finger', 'Ulnar palm'],
     exam: 'Test finger abduction/adduction and Froment sign during key pinch; compare proximal versus distal lesion patterns.',
-    lesionSites: 'Cubital tunnel · medial epicondyle · Guyon canal',
+    lesionSites: 'Cubital tunnel · Guyon canal',
     pearl: 'Distal lesions can show more obvious clawing because FDP remains intact — the classic ulnar paradox.',
+    lesionLevels: [
+      {
+        id: 'cubital-tunnel',
+        label: 'Cubital tunnel',
+        subtitle: 'Ulnar nerve at the elbow',
+        affectedMotorKeys: [
+          'flexorCarpiUlnaris', 'flexorDigitorumProfundus', 'adductorPollicis',
+          'dorsalInterossei', 'palmarInterossei', 'abductorDigitiMinimi',
+          'flexorDigitiMinimiBrevis', 'opponensDigitiMinimi',
+        ],
+        sparedMotorKeys: [],
+        sensory: 'Ulnar-digit symptoms can include both palmar and dorsal territories because the lesion is proximal to the distal cutaneous branches.',
+        motor: 'Intrinsic hand weakness occurs together with weakness of FCU and the ulnar component of FDP.',
+        localization: 'Intrinsic hand weakness plus proximal ulnar forearm-muscle involvement supports an elbow-level lesion.',
+        contextKeys: ['humerus', 'ulna'],
+      },
+      {
+        id: 'guyon-canal',
+        label: 'Guyon canal',
+        subtitle: 'Ulnar nerve at the wrist',
+        affectedMotorKeys: ['adductorPollicis', 'dorsalInterossei', 'palmarInterossei', 'abductorDigitiMinimi', 'flexorDigitiMinimiBrevis', 'opponensDigitiMinimi'],
+        sparedMotorKeys: ['flexorCarpiUlnaris', 'flexorDigitorumProfundus'],
+        sensory: 'Palmar ulnar-digit sensation may be affected depending on the canal zone, while dorsal ulnar-hand sensation is typically spared because the dorsal cutaneous branch arises proximally.',
+        motor: 'Intrinsic hand weakness occurs with preservation of FCU and ulnar FDP function.',
+        localization: 'Weak interossei/key pinch with preserved FCU and FDP points distal to the forearm, near Guyon canal.',
+        contextKeys: ['pisiform', 'hamate', 'metacarpal5'],
+      },
+    ],
     motorTests: [
       {
         id: 'finger-abduction',
@@ -108,8 +175,55 @@ export const nerveDeficits = [
     sensorySummary: 'Posterior limb territories vary by level; a high-yield autonomous zone is the dorsal first web space.',
     sensoryRegions: ['Dorsal first web space', 'Dorsal radial hand'],
     exam: 'Test wrist extension, MCP extension, thumb extension, and sensation in the dorsal first web space.',
-    lesionSites: 'Axilla · radial groove · posterior interosseous branch',
+    lesionSites: 'Axilla · radial groove · posterior interosseous nerve',
     pearl: 'Posterior interosseous neuropathy is predominantly motor because the deep branch is not a cutaneous sensory nerve.',
+    lesionLevels: [
+      {
+        id: 'axilla',
+        label: 'Axillary-level radial lesion',
+        subtitle: 'Very proximal radial nerve',
+        affectedMotorKeys: [
+          'tricepsBrachii', 'brachioradialis', 'extensorCarpiRadialisLongus',
+          'extensorCarpiRadialisBrevis', 'extensorDigitorum', 'extensorDigitiMinimi',
+          'extensorCarpiUlnaris', 'supinator', 'abductorPollicisLongus',
+          'extensorPollicisBrevis', 'extensorPollicisLongus', 'extensorIndicis',
+        ],
+        sparedMotorKeys: [],
+        sensory: 'Posterior arm/forearm and dorsal radial-hand sensory territories may be affected depending on the exact level.',
+        motor: 'Elbow extension can be weak together with wrist, finger, and thumb extension.',
+        localization: 'Triceps weakness plus distal radial deficits implies a lesion proximal to the radial groove.',
+        contextKeys: ['humerus'],
+      },
+      {
+        id: 'radial-groove',
+        label: 'Radial groove',
+        subtitle: 'Mid-humeral radial nerve',
+        affectedMotorKeys: [
+          'brachioradialis', 'extensorCarpiRadialisLongus', 'extensorCarpiRadialisBrevis',
+          'extensorDigitorum', 'extensorDigitiMinimi', 'extensorCarpiUlnaris', 'supinator',
+          'abductorPollicisLongus', 'extensorPollicisBrevis', 'extensorPollicisLongus', 'extensorIndicis',
+        ],
+        sparedMotorKeys: ['tricepsBrachii'],
+        sensory: 'Dorsal radial-hand sensation, including the first web space, may be reduced; triceps function is usually preserved.',
+        motor: 'Wrist and digit extension are weak while elbow extension is relatively spared.',
+        localization: 'Wrist drop with preserved triceps strongly supports a lesion around the radial groove rather than the axilla.',
+        contextKeys: ['humerus', 'radius', 'ulna'],
+      },
+      {
+        id: 'pin',
+        label: 'Posterior interosseous nerve',
+        subtitle: 'Deep radial motor branch',
+        affectedMotorKeys: [
+          'supinator', 'extensorDigitorum', 'extensorDigitiMinimi', 'extensorCarpiUlnaris',
+          'abductorPollicisLongus', 'extensorPollicisBrevis', 'extensorPollicisLongus', 'extensorIndicis',
+        ],
+        sparedMotorKeys: ['tricepsBrachii', 'brachioradialis', 'extensorCarpiRadialisLongus'],
+        sensory: 'No cutaneous sensory loss is expected from an isolated posterior interosseous lesion.',
+        motor: 'Finger and thumb extension are weak, while wrist extension is relatively preserved and may deviate radially.',
+        localization: 'Finger-extension weakness without cutaneous sensory loss and with preserved ECRL-driven wrist extension points toward the PIN.',
+        contextKeys: ['radius', 'ulna'],
+      },
+    ],
     motorTests: [
       {
         id: 'wrist-extension',
@@ -150,8 +264,32 @@ export const nerveDeficits = [
     sensorySummary: 'Small patch over the lateral shoulder supplied by the superior lateral cutaneous nerve of the arm.',
     sensoryRegions: ['Lateral shoulder'],
     exam: 'Test resisted abduction and compare sensation over the regimental-badge area.',
-    lesionSites: 'Surgical neck · anterior shoulder dislocation · quadrangular space',
+    lesionSites: 'Surgical neck / anterior dislocation · quadrangular space',
     pearl: 'Supraspinatus may still initiate abduction even when axillary-innervated deltoid function is impaired.',
+    lesionLevels: [
+      {
+        id: 'surgical-neck',
+        label: 'Surgical neck / dislocation',
+        subtitle: 'Axillary nerve around proximal humerus',
+        affectedMotorKeys: ['deltoid', 'teresMinor'],
+        sparedMotorKeys: [],
+        sensory: 'Lateral-shoulder sensation can be reduced in the superior lateral cutaneous territory.',
+        motor: 'Deltoid weakness impairs abduction after initiation; teres minor weakness may reduce external rotation.',
+        localization: 'This pattern is classic after anterior shoulder dislocation or proximal humeral injury.',
+        contextKeys: ['humerus', 'scapula', 'clavicle'],
+      },
+      {
+        id: 'quadrangular-space',
+        label: 'Quadrangular space',
+        subtitle: 'Proximal axillary entrapment pattern',
+        affectedMotorKeys: ['deltoid', 'teresMinor'],
+        sparedMotorKeys: [],
+        sensory: 'Lateral-shoulder sensory symptoms may accompany motor weakness, although the clinical pattern can overlap with other proximal axillary lesions.',
+        motor: 'Deltoid and teres-minor weakness can resemble the surgical-neck pattern.',
+        localization: 'Localization depends on mechanism and regional anatomy because the motor/sensory pattern overlaps substantially with other axillary-nerve lesions.',
+        contextKeys: ['scapula', 'humerus'],
+      },
+    ],
     motorTests: [
       {
         id: 'abduction',
@@ -178,11 +316,18 @@ export function nerveDeficitById(id) {
   return nerveDeficits.find((item) => item.id === id) ?? nerveDeficits[0];
 }
 
+export function lesionLevelById(item, id) {
+  if (!item) return null;
+  return item.lesionLevels?.find((level) => level.id === id) ?? item.lesionLevels?.[0] ?? null;
+}
+
 export function nerveDeficitKeys(item) {
   if (!item) return [];
+  const lesionContext = (item.lesionLevels ?? []).flatMap((level) => level.contextKeys ?? []);
   return [...new Set([
     item.nerveKey,
     ...(item.motorKeys ?? []),
     ...(item.contextKeys ?? []),
+    ...lesionContext,
   ])];
 }
