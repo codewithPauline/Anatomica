@@ -7,6 +7,7 @@ import { quizQuestions } from './data/quizQuestions.js';
 import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';
 import { nerveDeficits, nerveDeficitById, nerveDeficitKeys, lesionLevelById } from './data/nerveDeficits.js';
 import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';
+import { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, saveLearnerProgress, summarizeLearnerProgress } from './learning/progressStore.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -186,8 +187,22 @@ app.innerHTML = `
             <button class="tool challenge-difficulty-button" data-challenge-difficulty="intermediate" type="button">Intermediate</button>
             <button class="tool challenge-difficulty-button" data-challenge-difficulty="advanced" type="button">Advanced</button>
             <button class="tool challenge-difficulty-button active" data-challenge-difficulty="adaptive" type="button">Adaptive</button>
+            <button class="tool challenge-difficulty-button" data-challenge-difficulty="review" type="button">Review due</button>
           </div>
           <p id="challenge-mode-note" class="challenge-mode-note">Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.</p>
+        </div>
+        <div class="challenge-persistent-progress" aria-live="polite">
+          <div class="challenge-persistent-head">
+            <span class="section-label">Progress on this browser</span>
+            <button id="challenge-clear-progress" class="challenge-clear-progress" type="button">Clear</button>
+          </div>
+          <div class="challenge-persistent-stats">
+            <div><span>Sessions</span><b id="challenge-lifetime-sessions">0</b></div>
+            <div><span>Accuracy</span><b id="challenge-lifetime-accuracy">—</b></div>
+            <div><span>Due review</span><b id="challenge-review-count">0</b></div>
+          </div>
+          <p id="challenge-persistent-focus">Complete a session to build a mastery profile.</p>
+          <p class="challenge-storage-note">Stored only in this browser. No account or cloud sync.</p>
         </div>
         <p id="challenge-progress" class="challenge-progress">Case 1 of ${localizationChallenges.length}</p>
         <strong id="challenge-title" class="challenge-title"></strong>
@@ -335,6 +350,9 @@ let localizationChallengeAttempts = 0;
 let localizationChallengeAnswered = false;
 let localizationChallengePerformance = {};
 let localizationChallengeMisses = [];
+let localizationChallengeSessionResults = [];
+let localizationChallengeSessionRecorded = false;
+let learnerProgress = loadLearnerProgress();
 let selectedChallengeNerveId = null;
 let selectedChallengeLevelId = null;
 let quizMode = false;
@@ -1133,6 +1151,46 @@ function currentLocalizationChallenge() {
   return localizationChallengeById(id);
 }
 
+function challengeProgressSummary() {
+  return summarizeLearnerProgress(learnerProgress, nerveDeficits, localizationChallenges);
+}
+
+function reviewChallengePool() {
+  const dueIds = challengeProgressSummary().reviewQueue.map((item) => item.id);
+  const dueSet = new Set(dueIds);
+  const due = localizationChallenges.filter((challenge) => dueSet.has(challenge.id));
+  return due.length ? due : localizationChallenges;
+}
+
+function renderPersistentChallengeProgress() {
+  const summary = challengeProgressSummary();
+  document.querySelector('#challenge-lifetime-sessions').textContent = String(summary.sessions);
+  document.querySelector('#challenge-lifetime-accuracy').textContent = summary.accuracy == null
+    ? '—'
+    : `${Math.round(summary.accuracy * 100)}%`;
+  document.querySelector('#challenge-review-count').textContent = String(summary.reviewQueue.length);
+
+  const attemptedNerves = summary.nerves
+    .filter((item) => item.attempts > 0)
+    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0) || b.attempts - a.attempts);
+  const weakest = attemptedNerves[0];
+  document.querySelector('#challenge-persistent-focus').textContent = weakest
+    ? `Current focus: ${weakest.name} · ${weakest.mastery} · ${Math.round((weakest.accuracy ?? 0) * 100)}% across ${weakest.attempts} attempt${weakest.attempts === 1 ? '' : 's'}.`
+    : 'Complete a session to build a mastery profile.';
+}
+
+function recordCompletedChallengeSession() {
+  if (localizationChallengeSessionRecorded || localizationChallengeSessionResults.length === 0) return;
+  learnerProgress = recordLocalizationSession(learnerProgress, {
+    mode: localizationChallengeDifficulty,
+    completedAt: new Date().toISOString(),
+    results: localizationChallengeSessionResults,
+  });
+  learnerProgress = saveLearnerProgress(learnerProgress);
+  localizationChallengeSessionRecorded = true;
+  renderPersistentChallengeProgress();
+}
+
 function resetChallengePerformance() {
   localizationChallengePerformance = Object.fromEntries(
     nerveDeficits.map((item) => [item.id, { attempts: 0, correct: 0 }]),
@@ -1148,6 +1206,12 @@ function challengeModeNote(difficulty) {
   if (difficulty === 'adaptive') {
     return 'Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.';
   }
+  if (difficulty === 'review') {
+    const due = challengeProgressSummary().reviewQueue.length;
+    return due
+      ? `Spaced review · ${due} challenge${due === 1 ? '' : 's'} due on this browser.`
+      : 'No spaced-review items are due yet, so Review due will use the full challenge bank.';
+  }
   const count = localizationChallengesForDifficulty(difficulty).length;
   return `${challengeDifficultyLabel(difficulty)} session · ${count} shuffled case${count === 1 ? '' : 's'}.`;
 }
@@ -1161,16 +1225,19 @@ function syncChallengeDifficultyButtons() {
 
 function startLocalizationChallengeSession(difficulty = localizationChallengeDifficulty) {
   localizationChallengeDifficulty = difficulty;
-  const pool = localizationChallengesForDifficulty(difficulty);
+  const pool = difficulty === 'review' ? reviewChallengePool() : localizationChallengesForDifficulty(difficulty);
   localizationChallengeSessionIds = shuffleChallenges(pool).map((challenge) => challenge.id);
   localizationChallengeSessionPosition = 0;
   localizationChallengeCorrect = 0;
   localizationChallengeAttempts = 0;
   localizationChallengeAnswered = false;
+  localizationChallengeSessionResults = [];
+  localizationChallengeSessionRecorded = false;
   selectedChallengeNerveId = null;
   selectedChallengeLevelId = null;
   resetChallengePerformance();
   syncChallengeDifficultyButtons();
+  renderPersistentChallengeProgress();
   document.querySelector('#challenge-session-summary').hidden = true;
   renderLocalizationChallenge();
 }
@@ -1369,6 +1436,12 @@ function submitLocalizationChallenge() {
   const correct = selectedChallengeNerveId === challenge.nerveId && selectedChallengeLevelId === challenge.levelId;
   if (correct) localizationChallengeCorrect += 1;
   recordChallengePerformance(challenge, correct);
+  localizationChallengeSessionResults.push({
+    challengeId: challenge.id,
+    nerveId: challenge.nerveId,
+    levelId: challenge.levelId,
+    correct,
+  });
 
   const answerNerve = nerveDeficitById(challenge.nerveId);
   const answerLevel = lesionLevelById(answerNerve, challenge.levelId);
@@ -1386,6 +1459,7 @@ function submitLocalizationChallenge() {
 
 function renderLocalizationChallengeSummary() {
   setChallengeCaseVisibility(false);
+  recordCompletedChallengeSession();
   const summary = document.querySelector('#challenge-session-summary');
   summary.hidden = false;
 
@@ -1442,6 +1516,12 @@ document.querySelector('#challenge-next').addEventListener('click', () => {
 });
 document.querySelector('#challenge-restart').addEventListener('click', () => {
   startLocalizationChallengeSession(localizationChallengeDifficulty);
+});
+document.querySelector('#challenge-clear-progress').addEventListener('click', () => {
+  if (!window.confirm('Clear all Anatomica localization progress stored in this browser?')) return;
+  learnerProgress = clearLearnerProgress();
+  renderPersistentChallengeProgress();
+  syncChallengeDifficultyButtons();
 });
 
 document.querySelector('#localization-challenge-btn').addEventListener('click', () => {
