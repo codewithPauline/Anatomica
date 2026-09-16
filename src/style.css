@@ -549,3 +549,46 @@ h1 {
   .mastery-session-trend { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; }
   .mastery-overview-stats { grid-template-columns: 1fr; }
 }
+
+
+/* v0.3.8 targeted remediation */
+button.mastery-lesion-row {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+button.mastery-lesion-row:hover {
+  transform: translateY(-1px);
+  border-color: #6b7890;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .14);
+}
+.mastery-practice-cue {
+  display: block;
+  margin-top: 4px;
+  color: #90a9c9;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.mastery-weak-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #463b47;
+  border-radius: 10px;
+  background: #171318;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.mastery-weak-item:hover { border-color: #765d78; background: #1d171f; }
+.mastery-weak-item b { color: #e5d5e7; font-size: 11.5px; }
+.mastery-weak-item span { color: #9d8d9f; font-size: 10.5px; line-height: 1.4; }
+.mastery-weak-item em { color: #b49fc0; font-size: 10px; font-style: normal; font-weight: 700; }
+.mastery-weak-item:focus-visible,
+button.mastery-lesion-row:focus-visible { outline: 3px solid #8096b8; outline-offset: 2px; }

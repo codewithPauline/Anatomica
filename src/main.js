@@ -9,6 +9,7 @@ import { nerveDeficits, nerveDeficitById, nerveDeficitKeys, lesionLevelById } fr
 import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';
 import { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, saveLearnerProgress, summarizeLearnerProgress } from './learning/progressStore.js';
 import { buildMasteryDashboard } from './learning/masteryDashboard.js';
+import { buildRemediationSession, remediationFocusLabel } from './learning/remediation.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -396,6 +397,7 @@ let activeMotorTestId = nerveDeficits[0]?.motorTests?.[0]?.id ?? null;
 let motorSimulationState = 'lesion';
 let localizationChallengeMode = false;
 let masteryDashboardMode = false;
+let remediationFocus = null;
 let localizationChallengeDifficulty = 'adaptive';
 let localizationChallengeSessionIds = [];
 let localizationChallengeSessionPosition = 0;
@@ -1281,13 +1283,13 @@ function renderMasteryDashboard() {
     const percent = lesion.accuracy == null ? 0 : Math.round(lesion.accuracy * 100);
     const accuracyLabel = lesion.attempts ? `${percent}% · ${lesion.correct}/${lesion.attempts}` : 'Not practiced';
     const statusClass = lesion.mastery.toLowerCase();
-    return `<div class="mastery-lesion-row ${statusClass}"><div class="mastery-lesion-copy"><span>${lesion.nerveName}</span><b>${lesion.label}</b></div><div class="mastery-lesion-score"><em>${lesion.mastery}</em><span>${accuracyLabel}</span></div><div class="mastery-meter"><span style="width:${lesion.attempts ? Math.max(4, percent) : 0}%"></span></div></div>`;
+    return `<button type="button" class="mastery-lesion-row ${statusClass}" data-remediate-nerve="${lesion.nerveId}" data-remediate-level="${lesion.levelId}" title="Practice ${lesion.nerveName} · ${lesion.label}"><div class="mastery-lesion-copy"><span>${lesion.nerveName}</span><b>${lesion.label}</b></div><div class="mastery-lesion-score"><em>${lesion.mastery}</em><span>${accuracyLabel}</span><strong class="mastery-practice-cue">Practice</strong></div><div class="mastery-meter"><span style="width:${lesion.attempts ? Math.max(4, percent) : 0}%"></span></div></button>`;
   }).join('');
 
   document.querySelector('#mastery-weakest-list').innerHTML = dashboard.weakest.length
     ? dashboard.weakest.map((lesion) => {
         const percent = Math.round((lesion.accuracy ?? 0) * 100);
-        return `<div><b>${lesion.nerveName} · ${lesion.label}</b><span>${percent}% across ${lesion.attempts} attempt${lesion.attempts === 1 ? '' : 's'} · ${lesion.mastery}</span></div>`;
+        return `<button type="button" class="mastery-weak-item" data-remediate-nerve="${lesion.nerveId}" data-remediate-level="${lesion.levelId}"><b>${lesion.nerveName} · ${lesion.label}</b><span>${percent}% across ${lesion.attempts} attempt${lesion.attempts === 1 ? '' : 's'} · ${lesion.mastery}</span><em>Practice nerve family →</em></button>`;
       }).join('')
     : '<p class="mastery-empty">No practiced lesion patterns yet.</p>';
 
@@ -1296,6 +1298,28 @@ function renderMasteryDashboard() {
   reviewButton.textContent = dashboard.dueReviewCount
     ? `Practice ${dashboard.dueReviewCount} due review${dashboard.dueReviewCount === 1 ? '' : 's'}`
     : 'No review due';
+
+  document.querySelectorAll('[data-remediate-nerve][data-remediate-level]').forEach((button) => {
+    button.addEventListener('click', () => {
+      launchTargetedRemediation(button.dataset.remediateNerve, button.dataset.remediateLevel);
+    });
+  });
+}
+
+
+function launchTargetedRemediation(nerveId, levelId) {
+  const pool = buildRemediationSession(localizationChallenges, nerveId, levelId);
+  if (!pool.length) return;
+
+  remediationFocus = { nerveId, levelId };
+  deactivateStudyModes('localization-challenge');
+  masteryDashboardMode = false;
+  document.querySelector('#mastery-dashboard-btn').classList.remove('active');
+  document.querySelector('#mastery-dashboard-card').hidden = true;
+  localizationChallengeMode = true;
+  document.querySelector('#localization-challenge-btn').classList.add('active');
+  document.querySelector('#localization-challenge-card').hidden = false;
+  startLocalizationChallengeSession('remediation');
 }
 
 function recordCompletedChallengeSession() {
@@ -1331,6 +1355,11 @@ function challengeModeNote(difficulty) {
       ? `Spaced review · ${due} challenge${due === 1 ? '' : 's'} due on this browser.`
       : 'No spaced-review items are due yet, so Review due will use the full challenge bank.';
   }
+  if (difficulty === 'remediation' && remediationFocus) {
+    const focus = remediationFocusLabel(nerveDeficits, remediationFocus.nerveId, remediationFocus.levelId);
+    const count = buildRemediationSession(localizationChallenges, remediationFocus.nerveId, remediationFocus.levelId).length;
+    return `Targeted remediation · ${focus.nerveName} · ${focus.levelLabel} first, then ${Math.max(0, count - 1)} same-nerve comparator${count - 1 === 1 ? '' : 's'}.`;
+  }
   const count = localizationChallengesForDifficulty(difficulty).length;
   return `${challengeDifficultyLabel(difficulty)} session · ${count} shuffled case${count === 1 ? '' : 's'}.`;
 }
@@ -1344,8 +1373,14 @@ function syncChallengeDifficultyButtons() {
 
 function startLocalizationChallengeSession(difficulty = localizationChallengeDifficulty) {
   localizationChallengeDifficulty = difficulty;
-  const pool = difficulty === 'review' ? reviewChallengePool() : localizationChallengesForDifficulty(difficulty);
-  localizationChallengeSessionIds = shuffleChallenges(pool).map((challenge) => challenge.id);
+  let pool;
+  if (difficulty === 'review') pool = reviewChallengePool();
+  else if (difficulty === 'remediation' && remediationFocus) {
+    pool = buildRemediationSession(localizationChallenges, remediationFocus.nerveId, remediationFocus.levelId);
+  } else pool = localizationChallengesForDifficulty(difficulty);
+  localizationChallengeSessionIds = difficulty === 'remediation'
+    ? pool.map((challenge) => challenge.id)
+    : shuffleChallenges(pool).map((challenge) => challenge.id);
   localizationChallengeSessionPosition = 0;
   localizationChallengeCorrect = 0;
   localizationChallengeAttempts = 0;
@@ -1595,9 +1630,17 @@ function renderLocalizationChallengeSummary() {
     ? [...attemptedStats].sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts)[0]
     : null;
   const weakestNerve = weakest ? nerveDeficitById(weakest.nerveId) : null;
+  const remediationSummary = localizationChallengeDifficulty === 'remediation' && remediationFocus;
+  const remediationLabel = remediationSummary
+    ? remediationFocusLabel(nerveDeficits, remediationFocus.nerveId, remediationFocus.levelId)
+    : null;
   document.querySelector('#challenge-summary-focus').textContent = localizationChallengeMisses.length
-    ? `Review focus: ${weakestNerve?.name ?? weakest?.nerveId}. Revisit the missed lesion-level clues below, then run another adaptive session.`
-    : 'No missed localizations in this session. Try a harder or adaptive session to keep testing discrimination between lesion levels.';
+    ? remediationSummary
+      ? `Remediation focus remains ${remediationLabel.nerveName} · ${remediationLabel.levelLabel}. Repeat the family if the distinguishing clues are not secure yet.`
+      : `Review focus: ${weakestNerve?.name ?? weakest?.nerveId}. Revisit the missed lesion-level clues below, then run another adaptive session.`
+    : remediationSummary
+      ? `Targeted family complete without misses. Return to the Mastery Dashboard or repeat the family later for retention.`
+      : 'No missed localizations in this session. Try a harder or adaptive session to keep testing discrimination between lesion levels.';
 
   document.querySelector('#challenge-nerve-summary').innerHTML = attemptedStats.map((stats) => {
     const item = nerveDeficitById(stats.nerveId);
@@ -1620,6 +1663,7 @@ function renderLocalizationChallengeSummary() {
 document.querySelectorAll('.challenge-difficulty-button').forEach((button) => {
   button.addEventListener('click', () => {
     if (!localizationChallengeMode) return;
+    remediationFocus = null;
     startLocalizationChallengeSession(button.dataset.challengeDifficulty);
   });
 });
@@ -1654,6 +1698,10 @@ document.querySelector('#localization-challenge-btn').addEventListener('click', 
   document.querySelector('#localization-challenge-btn').classList.toggle('active', localizationChallengeMode);
   document.querySelector('#localization-challenge-card').hidden = !localizationChallengeMode;
   if (localizationChallengeMode) {
+    if (localizationChallengeDifficulty === 'remediation') {
+      remediationFocus = null;
+      localizationChallengeDifficulty = 'adaptive';
+    }
     startLocalizationChallengeSession(localizationChallengeDifficulty);
   } else {
     restoreAll();
