@@ -36,5 +36,8 @@ jobs:
       - name: Validate targeted remediation
         run: npm run validate:remediation
 
+      - name: Validate challenge variants
+        run: npm run validate:variants
+
       - name: Build
         run: npm run build
