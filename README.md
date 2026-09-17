@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3.9 Alternate Clinical Vignettes
+## Current milestone — v0.4.0 Confidence-Calibrated Clinical Reasoning
 
-Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, adaptive clinical-localization sessions, browser-local mastery tracking, longitudinal learning analytics, targeted remediation, and alternate clinical presentations. The localization system still measures the same 10 modeled lesion concepts, but each concept now has two possible vignette presentations so repeated practice depends less on memorizing one fixed stem.
+Anatomica now connects upper-limb anatomy to lesion-level clinical reasoning, alternate vignette presentations, adaptive practice, spaced review, targeted remediation, longitudinal mastery analytics, and **self-rated confidence calibration**. A localization response now captures not only whether the learner was correct, but whether that answer was made with low, moderate, or high confidence—allowing the platform to surface high-confidence misses and correct-but-uncertain responses without inventing a proprietary competence score.
 
 ### Working now
 
@@ -35,8 +35,9 @@ Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinic
 - **Longitudinal Mastery Dashboard with recent-session accuracy, mastery states across all 10 lesion patterns, weakest-practiced concepts, momentum summaries, and direct due-review access**
 - **Targeted Remediation that launches from any lesion or weak-concept card and practices the selected lesion first, followed by same-nerve comparator lesions**
 - **Alternate clinical-vignette presentation layer with 20 total stems across the same 10 lesion concepts, selected once per session and kept stable through feedback and 3D reveal**
+- **Confidence-Calibrated Clinical Reasoning with required Unsure / Moderate / High self-rating, confidence-aware feedback, browser-local persistence, and dashboard summaries by confidence band**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-content, learner-progress, mastery-dashboard, targeted-remediation, and challenge-variant validation in CI so anatomy references, review scheduling, analytics summaries, focused-practice pools, and vignette invariants are checked automatically
+- Clinical-content, learner-progress, mastery-dashboard, targeted-remediation, challenge-variant, and confidence-calibration validation in CI so anatomy references, review scheduling, analytics summaries, focused-practice pools, vignette invariants, and confidence summaries are checked automatically
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
@@ -91,9 +92,10 @@ Each challenge follows the same sequence:
 1. Read the clinical stem and key findings.
 2. Choose the involved peripheral nerve.
 3. Choose the lesion level for that nerve.
-4. Submit the localization.
-5. Receive immediate correct/incorrect feedback and the reasoning behind the answer.
-6. Reveal the correct nerve and lesion pattern in the 3D viewer.
+4. Rate confidence as **Unsure**, **Moderate**, or **High**.
+5. Submit the localization.
+6. Receive immediate correct/incorrect feedback, confidence-aware study guidance, and the reasoning behind the answer.
+7. Reveal the correct nerve and lesion pattern in the 3D viewer.
 
 The viewer deliberately remains neutral before submission so the anatomy does not leak the answer. During the reveal, the involved nerve is shown in red, expected impaired motor targets in amber, and explicitly spared targets in green.
 
@@ -146,6 +148,16 @@ At the start of a session, Anatomica selects one presentation for each included 
 The variant layer is used by standard difficulty sessions, Adaptive mode, spaced review, and Targeted Remediation. It is designed to reduce simple wording recognition, not to claim a psychometrically validated item bank.
 
 See [`docs/CHALLENGE_VARIANTS.md`](docs/CHALLENGE_VARIANTS.md) for the presentation model, validation rules, and limitations.
+
+### Confidence-calibrated reasoning
+
+v0.4.0 adds a required self-rated confidence step to every localization response. Learners choose **Unsure**, **Moderate**, or **High** before submitting. Confidence does not change whether the localization is scored correct; it adds context to the result.
+
+The immediate feedback distinguishes useful learning states such as **high-confidence misses** and **correct-but-unsure answers**. The Mastery Dashboard adds a Confidence Calibration panel showing the number of rated responses, accuracy among high-confidence responses, high-confidence misses, correct answers made while unsure, and observed accuracy within each confidence band.
+
+Confidence is stored only in the same browser-local progress record already used by Anatomica. Historical sessions without confidence remain valid and are ignored by confidence summaries. The confidence categories are ordinal self-ratings—not numeric probabilities—and Anatomica does not calculate proprietary calibration scores or claim validated measures of clinical competence.
+
+See [`docs/CONFIDENCE_CALIBRATION.md`](docs/CONFIDENCE_CALIBRATION.md) for persistence behavior, feedback semantics, dashboard analytics, validation, and limitations.
 
 ## Motor Test Simulator
 
@@ -236,6 +248,7 @@ Learning questions      → src/data/quizQuestions.js
 Learner progress        → src/learning/progressStore.js
 Mastery analytics       → src/learning/masteryDashboard.js
 Targeted remediation    → src/learning/remediation.js
+Confidence analytics    → src/learning/confidenceCalibration.js
 Rendering / modes       → src/main.js + src/engine/
 ```
 
@@ -282,7 +295,8 @@ Anatomica/
 │   ├── learning/
 │   │   ├── progressStore.js            # Browser-local mastery + spaced review
 │   │   ├── masteryDashboard.js         # Longitudinal learning-analytics summaries
-│   │   └── remediation.js              # Same-nerve targeted-practice session builder
+│   │   ├── remediation.js              # Same-nerve targeted-practice session builder
+│   │   └── confidenceCalibration.js    # Confidence-band summaries + feedback
 │   ├── engine/
 │   │   ├── modelLoader.js              # Production GLB loader
 │   │   ├── realModelSwap.js            # Shared registration + fallback replacement
@@ -294,7 +308,8 @@ Anatomica/
 │   ├── validate_progress_store.mjs     # Persistence + spaced-review validation
 │   ├── validate_mastery_dashboard.mjs  # Dashboard analytics validation
 │   ├── validate_remediation.mjs        # Targeted-practice pool validation
-│   └── validate_challenge_variants.mjs # Vignette-variant invariant validation
+│   ├── validate_challenge_variants.mjs # Vignette-variant invariant validation
+│   └── validate_confidence_calibration.mjs # Confidence analytics validation
 ├── docs/
 │   ├── ANATOMY_VALIDATION.md           # Visual/anatomical sign-off standard
 │   ├── LESION_LOCALIZATION.md          # Lesion-level reasoning model
@@ -304,6 +319,7 @@ Anatomica/
 │   ├── MASTERY_DASHBOARD.md            # Longitudinal learning analytics
 │   ├── TARGETED_REMEDIATION.md         # Dashboard-to-practice remediation workflow
 │   ├── CHALLENGE_VARIANTS.md           # Alternate vignette presentation model
+│   ├── CONFIDENCE_CALIBRATION.md       # Self-rated confidence analytics + limits
 │   └── MOTOR_TEST_SIMULATOR.md         # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
@@ -343,7 +359,8 @@ Anatomica/
 - [x] Longitudinal Mastery Dashboard with recent-session trend, lesion-level mastery states, weakest concepts, and due-review access
 - [x] Targeted remediation from lesion-level mastery cards into same-nerve comparator practice
 - [x] Alternate clinical-vignette presentations for all 10 localization concepts
-- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, dashboard analytics, remediation-session construction, and challenge-variant invariants
+- [x] Confidence-Calibrated Clinical Reasoning with confidence-aware feedback and dashboard analytics
+- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, dashboard analytics, remediation-session construction, challenge-variant invariants, and confidence calibration
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
