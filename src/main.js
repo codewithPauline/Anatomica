@@ -12,8 +12,10 @@ import { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, s
 import { buildMasteryDashboard } from './learning/masteryDashboard.js';
 import { buildRemediationSession, remediationFocusLabel } from './learning/remediation.js';
 import { buildConfidenceCalibration, confidenceFeedback, confidenceLabel } from './learning/confidenceCalibration.js';
+import { buildConfidenceRemediationPriorities, buildConfidenceRemediationSession, confidenceRemediationSummary } from './learning/confidenceRemediation.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
+import './confidenceRemediation.css';
 
 const app = document.querySelector('#app');
 app.innerHTML = `
@@ -285,6 +287,19 @@ app.innerHTML = `
           </div>
           <p id="mastery-confidence-summary" class="mastery-confidence-summary">Rate confidence on localization challenges to build a confidence profile.</p>
           <div id="mastery-confidence-bands" class="mastery-confidence-bands"></div>
+        </div>
+
+        <div class="mastery-section confidence-remediation-panel">
+          <div class="confidence-remediation-head">
+            <div>
+              <span class="section-label">Confidence-aware remediation</span>
+              <strong>Priority review queue</strong>
+            </div>
+            <span class="status-pill">Latest response</span>
+          </div>
+          <p id="mastery-confidence-remediation-summary" class="confidence-remediation-summary">No confidence-aware remediation is currently needed.</p>
+          <div id="mastery-confidence-remediation-list" class="confidence-remediation-list"></div>
+          <button id="mastery-confidence-remediation-btn" class="tool full confidence-remediation-button" type="button" disabled>Priority queue clear</button>
         </div>
 
         <div class="mastery-section">
@@ -1279,6 +1294,7 @@ function renderMasteryDashboard() {
   const summary = challengeProgressSummary();
   const dashboard = buildMasteryDashboard(learnerProgress, summary);
   const confidence = buildConfidenceCalibration(learnerProgress);
+  const confidencePriorities = buildConfidenceRemediationPriorities(learnerProgress, localizationChallenges);
 
   document.querySelector('#mastery-total-sessions').textContent = String(dashboard.totalSessions);
   document.querySelector('#mastery-overall-accuracy').textContent = dashboard.overallAccuracy == null
@@ -1296,6 +1312,19 @@ function renderMasteryDashboard() {
     const percent = band.accuracy == null ? null : Math.round(band.accuracy * 100);
     return `<div><span>${band.label}</span><b>${band.attempts ? `${band.correct}/${band.attempts}` : 'No data'}</b><em>${percent == null ? '—' : `${percent}%`}</em></div>`;
   }).join('');
+  document.querySelector('#mastery-confidence-remediation-summary').textContent = confidenceRemediationSummary(confidencePriorities);
+  document.querySelector('#mastery-confidence-remediation-list').innerHTML = confidencePriorities.length
+    ? confidencePriorities.map((item) => {
+        const nerve = nerveDeficitById(item.nerveId);
+        const level = lesionLevelById(nerve, item.levelId);
+        return `<button type="button" class="confidence-remediation-item ${item.priority}" data-remediate-nerve="${item.nerveId}" data-remediate-level="${item.levelId}"><b>${nerve?.name ?? item.nerveId} · ${level?.label ?? item.levelId}</b><em>${item.label}</em><span>${item.reason}</span></button>`;
+      }).join('')
+    : '<p class="mastery-empty">Nothing is currently flagged by the learner's latest confidence-rated responses.</p>';
+  const confidenceRemediationButton = document.querySelector('#mastery-confidence-remediation-btn');
+  confidenceRemediationButton.disabled = confidencePriorities.length === 0;
+  confidenceRemediationButton.textContent = confidencePriorities.length
+    ? `Practice ${confidencePriorities.length} priority concept${confidencePriorities.length === 1 ? '' : 's'}`
+    : 'Priority queue clear';
 
   const momentum = dashboard.momentum;
   let momentumText = 'Complete at least two sessions to establish a trend.';
@@ -1347,6 +1376,21 @@ function renderMasteryDashboard() {
 }
 
 
+function launchConfidenceRemediation() {
+  const pool = buildConfidenceRemediationSession(learnerProgress, localizationChallenges);
+  if (!pool.length) return;
+
+  remediationFocus = null;
+  deactivateStudyModes('localization-challenge');
+  masteryDashboardMode = false;
+  document.querySelector('#mastery-dashboard-btn').classList.remove('active');
+  document.querySelector('#mastery-dashboard-card').hidden = true;
+  localizationChallengeMode = true;
+  document.querySelector('#localization-challenge-btn').classList.add('active');
+  document.querySelector('#localization-challenge-card').hidden = false;
+  startLocalizationChallengeSession('confidence-review');
+}
+
 function launchTargetedRemediation(nerveId, levelId) {
   const pool = buildRemediationSession(localizationChallenges, nerveId, levelId);
   if (!pool.length) return;
@@ -1382,12 +1426,19 @@ function resetChallengePerformance() {
 }
 
 function challengeDifficultyLabel(value) {
+  if (value === 'confidence-review') return 'Priority remediation';
   return value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '';
 }
 
 function challengeModeNote(difficulty) {
   if (difficulty === 'adaptive') {
     return 'Adaptive mode uses all cases and brings another case from a missed nerve forward when possible.';
+  }
+  if (difficulty === 'confidence-review') {
+    const count = buildConfidenceRemediationSession(learnerProgress, localizationChallenges).length;
+    return count
+      ? `Confidence-aware remediation · ${count} concept${count === 1 ? '' : 's'} ordered by the latest unresolved confidence signal.`
+      : 'No confidence-aware remediation is currently needed.';
   }
   if (difficulty === 'review') {
     const due = challengeProgressSummary().reviewQueue.length;
@@ -1415,10 +1466,11 @@ function startLocalizationChallengeSession(difficulty = localizationChallengeDif
   localizationChallengeDifficulty = difficulty;
   let pool;
   if (difficulty === 'review') pool = reviewChallengePool();
+  else if (difficulty === 'confidence-review') pool = buildConfidenceRemediationSession(learnerProgress, localizationChallenges);
   else if (difficulty === 'remediation' && remediationFocus) {
     pool = buildRemediationSession(localizationChallenges, remediationFocus.nerveId, remediationFocus.levelId);
   } else pool = localizationChallengesForDifficulty(difficulty);
-  localizationChallengeSessionIds = difficulty === 'remediation'
+  localizationChallengeSessionIds = ['remediation', 'confidence-review'].includes(difficulty)
     ? pool.map((challenge) => challenge.id)
     : shuffleChallenges(pool).map((challenge) => challenge.id);
   localizationChallengeVariantSelection = Object.fromEntries(
@@ -1747,6 +1799,10 @@ document.querySelector('#challenge-next').addEventListener('click', () => {
   renderLocalizationChallenge();
 });
 document.querySelector('#challenge-restart').addEventListener('click', () => {
+  if (localizationChallengeDifficulty === 'confidence-review' && buildConfidenceRemediationSession(learnerProgress, localizationChallenges).length === 0) {
+    startLocalizationChallengeSession('adaptive');
+    return;
+  }
   startLocalizationChallengeSession(localizationChallengeDifficulty);
 });
 function clearAllLearnerProgress() {
@@ -1767,7 +1823,7 @@ document.querySelector('#localization-challenge-btn').addEventListener('click', 
   document.querySelector('#localization-challenge-btn').classList.toggle('active', localizationChallengeMode);
   document.querySelector('#localization-challenge-card').hidden = !localizationChallengeMode;
   if (localizationChallengeMode) {
-    if (localizationChallengeDifficulty === 'remediation') {
+    if (['remediation', 'confidence-review'].includes(localizationChallengeDifficulty)) {
       remediationFocus = null;
       localizationChallengeDifficulty = 'adaptive';
     }
@@ -1795,6 +1851,8 @@ document.querySelector('#mastery-dashboard-btn').addEventListener('click', () =>
     fitCameraToAnatomy();
   }
 });
+
+document.querySelector('#mastery-confidence-remediation-btn').addEventListener('click', launchConfidenceRemediation);
 
 document.querySelector('#mastery-review-btn').addEventListener('click', () => {
   if (challengeProgressSummary().reviewQueue.length === 0) return;
