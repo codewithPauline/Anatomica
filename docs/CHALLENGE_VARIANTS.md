@@ -69,7 +69,7 @@ Targeted Remediation still selects a lesion concept first and same-nerve compara
 
 Persistent progress remains concept-based. The progress store records the original `challengeId`, `nerveId`, and `levelId`; it does not create separate mastery records for each wording variant.
 
-This preserves continuity with progress saved before v0.3.9.
+This preserves continuity with progress saved before v0.3.9. The chosen presentation is session-local and is not persisted as a separate mastery dimension.
 
 ## Validation
 
