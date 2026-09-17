@@ -1319,7 +1319,7 @@ function renderMasteryDashboard() {
         const level = lesionLevelById(nerve, item.levelId);
         return `<button type="button" class="confidence-remediation-item ${item.priority}" data-remediate-nerve="${item.nerveId}" data-remediate-level="${item.levelId}"><b>${nerve?.name ?? item.nerveId} · ${level?.label ?? item.levelId}</b><em>${item.label}</em><span>${item.reason}</span></button>`;
       }).join('')
-    : '<p class="mastery-empty">Nothing is currently flagged by the learner's latest confidence-rated responses.</p>';
+    : `<p class="mastery-empty">Nothing is currently flagged by the learner's latest confidence-rated responses.</p>`;
   const confidenceRemediationButton = document.querySelector('#mastery-confidence-remediation-btn');
   confidenceRemediationButton.disabled = confidencePriorities.length === 0;
   confidenceRemediationButton.textContent = confidencePriorities.length
