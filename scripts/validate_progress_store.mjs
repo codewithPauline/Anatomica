@@ -33,8 +33,24 @@ progress = recordLocalizationSession(progress, {
   completedAt,
   mode: 'adaptive',
   results: [
-    { challengeId: medianCarpal.id, nerveId: medianCarpal.nerveId, levelId: medianCarpal.levelId, correct: false, confidence: 'high' },
-    { challengeId: radialPin.id, nerveId: radialPin.nerveId, levelId: radialPin.levelId, correct: true, confidence: 'low' },
+    {
+      challengeId: medianCarpal.id,
+      nerveId: medianCarpal.nerveId,
+      levelId: medianCarpal.levelId,
+      correct: false,
+      confidence: 'high',
+      selectedNerveId: radialPin.nerveId,
+      selectedLevelId: radialPin.levelId,
+    },
+    {
+      challengeId: radialPin.id,
+      nerveId: radialPin.nerveId,
+      levelId: radialPin.levelId,
+      correct: true,
+      confidence: 'low',
+      selectedNerveId: radialPin.nerveId,
+      selectedLevelId: radialPin.levelId,
+    },
   ],
 });
 
@@ -47,12 +63,16 @@ assert.equal(progress.challengeStats[medianCarpal.id].reviewStage, 0);
 assert.equal(progress.challengeStats[radialPin.id].reviewStage, 1);
 assert.equal(progress.sessions[0].results[0].confidence, 'high');
 assert.equal(progress.sessions[0].results[1].confidence, 'low');
+assert.equal(progress.sessions[0].results[0].selectedNerveId, radialPin.nerveId);
+assert.equal(progress.sessions[0].results[0].selectedLevelId, radialPin.levelId);
 
 saveLearnerProgress(progress, storage);
 const loaded = loadLearnerProgress(storage);
 assert.equal(loaded.sessions.length, 1);
 assert.equal(loaded.challengeStats[medianCarpal.id].attempts, 1);
 assert.equal(loaded.sessions[0].results[0].confidence, 'high');
+assert.equal(loaded.sessions[0].results[0].selectedNerveId, radialPin.nerveId);
+assert.equal(loaded.sessions[0].results[0].selectedLevelId, radialPin.levelId);
 
 const nextDay = new Date('2026-09-17T12:00:01.000Z');
 const due = dueChallengeIds(loaded, nextDay);
@@ -66,16 +86,26 @@ assert.equal(summary.correct, 1);
 assert.equal(summary.reviewQueue.length, 1);
 assert.equal(summary.reviewQueue[0].id, medianCarpal.id);
 
-const invalidConfidence = recordLocalizationSession(createEmptyProgress(), {
+const invalidMetadata = recordLocalizationSession(createEmptyProgress(), {
   completedAt,
   results: [
-    { challengeId: medianCarpal.id, nerveId: medianCarpal.nerveId, levelId: medianCarpal.levelId, correct: true, confidence: 'certain-ish' },
+    {
+      challengeId: medianCarpal.id,
+      nerveId: medianCarpal.nerveId,
+      levelId: medianCarpal.levelId,
+      correct: true,
+      confidence: 'certain-ish',
+      selectedNerveId: 123,
+      selectedLevelId: '',
+    },
   ],
 });
-assert.equal(invalidConfidence.sessions[0].results[0].confidence, null);
+assert.equal(invalidMetadata.sessions[0].results[0].confidence, null);
+assert.equal(invalidMetadata.sessions[0].results[0].selectedNerveId, null);
+assert.equal(invalidMetadata.sessions[0].results[0].selectedLevelId, null);
 
 const cleared = clearLearnerProgress(storage);
 assert.equal(cleared.sessions.length, 0);
 assert.equal(loadLearnerProgress(storage).sessions.length, 0);
 
-console.log('Validated browser-local learner progress, confidence persistence, mastery summaries, and spaced-review scheduling.');
+console.log('Validated browser-local learner progress, confidence and selected-answer persistence, mastery summaries, and spaced-review scheduling.');
