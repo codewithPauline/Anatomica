@@ -29,7 +29,7 @@ A localization challenge now requires three inputs:
 2. choose the lesion level, and
 3. rate confidence.
 
-The Submit button remains disabled until all three are selected.
+The Submit button remains disabled until all three are selected. The confidence rating is captured **before** correctness, explanation, or the 3D answer reveal is shown, so the learner cannot revise confidence after seeing feedback.
 
 Confidence does **not** change whether the answer is scored correct or incorrect. It adds context to the response after scoring.
 
