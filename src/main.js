@@ -7,6 +7,7 @@ import { quizQuestions } from './data/quizQuestions.js';
 import { clinicalCases, clinicalCaseById, clinicalCaseKeys } from './data/clinicalCases.js';
 import { nerveDeficits, nerveDeficitById, nerveDeficitKeys, lesionLevelById } from './data/nerveDeficits.js';
 import { localizationChallenges, localizationChallengeById, localizationChallengesForDifficulty } from './data/localizationChallenges.js';
+import { localizationChallengePresentation, randomChallengeVariantIndex } from './data/challengeVariants.js';
 import { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, saveLearnerProgress, summarizeLearnerProgress } from './learning/progressStore.js';
 import { buildMasteryDashboard } from './learning/masteryDashboard.js';
 import { buildRemediationSession, remediationFocusLabel } from './learning/remediation.js';
@@ -398,6 +399,7 @@ let motorSimulationState = 'lesion';
 let localizationChallengeMode = false;
 let masteryDashboardMode = false;
 let remediationFocus = null;
+let localizationChallengeVariantSelection = {};
 let localizationChallengeDifficulty = 'adaptive';
 let localizationChallengeSessionIds = [];
 let localizationChallengeSessionPosition = 0;
@@ -1209,7 +1211,9 @@ function shuffleChallenges(items) {
 
 function currentLocalizationChallenge() {
   const id = localizationChallengeSessionIds[localizationChallengeSessionPosition];
-  return localizationChallengeById(id);
+  const challenge = localizationChallengeById(id);
+  const variantIndex = localizationChallengeVariantSelection[id] ?? 0;
+  return localizationChallengePresentation(challenge, variantIndex);
 }
 
 function challengeProgressSummary() {
@@ -1381,6 +1385,12 @@ function startLocalizationChallengeSession(difficulty = localizationChallengeDif
   localizationChallengeSessionIds = difficulty === 'remediation'
     ? pool.map((challenge) => challenge.id)
     : shuffleChallenges(pool).map((challenge) => challenge.id);
+  localizationChallengeVariantSelection = Object.fromEntries(
+    localizationChallengeSessionIds.map((id) => {
+      const challenge = localizationChallengeById(id);
+      return [id, randomChallengeVariantIndex(challenge)];
+    }),
+  );
   localizationChallengeSessionPosition = 0;
   localizationChallengeCorrect = 0;
   localizationChallengeAttempts = 0;
