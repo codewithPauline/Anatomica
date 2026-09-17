@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.4.1 Confidence-Aware Remediation
+## Current milestone — v0.4.2 Error-Pattern Intelligence
 
-Anatomica now connects upper-limb anatomy to lesion-level clinical reasoning, alternate vignette presentations, adaptive practice, spaced review, longitudinal mastery analytics, self-rated confidence calibration, and **confidence-aware remediation**. The platform now turns the learner's latest confidence-rated response into an actionable priority queue: high-confidence misses are reviewed first, other unresolved misses next, and correct-but-unsure concepts receive reinforcement without being treated as equivalent to errors.
+Anatomica now connects upper-limb anatomy to lesion-level clinical reasoning, alternate vignette presentations, adaptive practice, spaced review, longitudinal mastery analytics, confidence-aware remediation, and **choice-aware error-pattern intelligence**. New localization responses preserve the modeled lesion concept the learner actually selected, allowing the Mastery Dashboard to identify repeated confusion pairs and launch focused two-concept drills around distinctions such as radial groove versus PIN or cubital tunnel versus Guyon canal.
 
 ### Working now
 
@@ -37,8 +37,9 @@ Anatomica now connects upper-limb anatomy to lesion-level clinical reasoning, al
 - **Alternate clinical-vignette presentation layer with 20 total stems across the same 10 lesion concepts, selected once per session and kept stable through feedback and 3D reveal**
 - **Confidence-Calibrated Clinical Reasoning with required Unsure / Moderate / High self-rating, confidence-aware feedback, browser-local persistence, and dashboard summaries by confidence band**
 - **Confidence-Aware Remediation with an urgency-ordered priority queue based on each lesion concept's latest response, plus direct same-nerve remediation from every priority card**
+- **Error-Pattern Intelligence that records the wrong modeled lesion selected, aggregates reverse-direction errors into one confusion pair, flags recurring pairs, and launches two-concept Confusion Drills**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-content, learner-progress, mastery-dashboard, targeted-remediation, challenge-variant, confidence-calibration, and confidence-remediation validation in CI so anatomy references, review scheduling, analytics summaries, focused-practice pools, vignette invariants, confidence summaries, and priority-queue behavior are checked automatically
+- Clinical-content, learner-progress, mastery-dashboard, targeted-remediation, challenge-variant, confidence-calibration, confidence-remediation, and error-pattern validation in CI so anatomy references, review scheduling, analytics summaries, focused-practice pools, vignette invariants, confidence summaries, priority queues, selected-answer persistence, and confusion-pair construction are checked automatically
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
@@ -170,6 +171,16 @@ This is deterministic rule-based study guidance. It does not diagnose misconcept
 
 See [`docs/CONFIDENCE_AWARE_REMEDIATION.md`](docs/CONFIDENCE_AWARE_REMEDIATION.md) for priority rules, resolution behavior, session construction, validation, and limitations.
 
+### Error-pattern intelligence
+
+v0.4.2 records the **modeled localization the learner actually chose** when answering a clinical-localization challenge. If an incorrect answer maps cleanly to another lesion concept in the current bank, Anatomica stores that choice and uses it to build answer-confusion pairs.
+
+Reverse-direction errors are combined. For example, choosing PIN when the correct answer is radial groove and later choosing radial groove when the correct answer is PIN are treated as one **Radial groove ↔ PIN** confusion pair. A single event remains a historical confusion event; two or more events are labeled **Recurring** in the dashboard. The panel also reports how many events were high-confidence misses.
+
+Each pair can launch a two-concept **Confusion Drill** using the existing alternate-vignette, confidence-rating, feedback, 3D-reveal, persistence, and mastery infrastructure. Error patterns are historical learning signals rather than claims that a learner currently holds a stable misconception, and older browser sessions without selected-answer metadata remain valid but do not contribute to these pair counts.
+
+See [`docs/ERROR_PATTERN_INTELLIGENCE.md`](docs/ERROR_PATTERN_INTELLIGENCE.md) for aggregation rules, drill construction, persistence behavior, validation, and limitations.
+
 ## Motor Test Simulator
 
 The functional-examination workflow sits inside the Nerve Deficit Explorer. Each nerve profile contains focused motor tests that can be viewed in two states:
@@ -261,6 +272,7 @@ Mastery analytics       → src/learning/masteryDashboard.js
 Targeted remediation    → src/learning/remediation.js
 Confidence analytics    → src/learning/confidenceCalibration.js
 Confidence remediation  → src/learning/confidenceRemediation.js
+Error-pattern analytics → src/learning/errorPatterns.js
 Rendering / modes       → src/main.js + src/engine/
 ```
 
@@ -309,13 +321,16 @@ Anatomica/
 │   │   ├── masteryDashboard.js         # Longitudinal learning-analytics summaries
 │   │   ├── remediation.js              # Same-nerve targeted-practice session builder
 │   │   ├── confidenceCalibration.js    # Confidence-band summaries + feedback
-│   │   └── confidenceRemediation.js    # Latest-response priority remediation engine
+│   │   ├── confidenceRemediation.js    # Latest-response priority remediation engine
+│   │   └── errorPatterns.js            # Choice-aware confusion-pair analytics + drills
 │   ├── engine/
 │   │   ├── modelLoader.js              # Production GLB loader
 │   │   ├── realModelSwap.js            # Shared registration + fallback replacement
 │   │   └── anatomyVisuals.js           # Model styling + legend
 │   ├── main.js
-│   └── style.css
+│   ├── style.css
+│   ├── confidenceRemediation.css
+│   └── errorPatterns.css
 ├── scripts/
 │   ├── validate_clinical_cases.mjs     # Clinical-content integrity check
 │   ├── validate_progress_store.mjs     # Persistence + spaced-review validation
@@ -323,7 +338,8 @@ Anatomica/
 │   ├── validate_remediation.mjs        # Targeted-practice pool validation
 │   ├── validate_challenge_variants.mjs # Vignette-variant invariant validation
 │   ├── validate_confidence_calibration.mjs # Confidence analytics validation
-│   └── validate_confidence_remediation.mjs # Confidence-priority validation
+│   ├── validate_confidence_remediation.mjs # Confidence-priority validation
+│   └── validate_error_patterns.mjs     # Answer-confusion + drill validation
 ├── docs/
 │   ├── ANATOMY_VALIDATION.md           # Visual/anatomical sign-off standard
 │   ├── LESION_LOCALIZATION.md          # Lesion-level reasoning model
@@ -335,6 +351,7 @@ Anatomica/
 │   ├── CHALLENGE_VARIANTS.md           # Alternate vignette presentation model
 │   ├── CONFIDENCE_CALIBRATION.md       # Self-rated confidence analytics + limits
 │   ├── CONFIDENCE_AWARE_REMEDIATION.md # Confidence-priority review model
+│   ├── ERROR_PATTERN_INTELLIGENCE.md   # Choice-aware confusion analytics + drills
 │   └── MOTOR_TEST_SIMULATOR.md         # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
@@ -376,7 +393,8 @@ Anatomica/
 - [x] Alternate clinical-vignette presentations for all 10 localization concepts
 - [x] Confidence-Calibrated Clinical Reasoning with confidence-aware feedback and dashboard analytics
 - [x] Confidence-aware remediation with latest-response priority review and resolution behavior
-- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, dashboard analytics, remediation-session construction, challenge-variant invariants, confidence calibration, and confidence-remediation priorities
+- [x] Error-Pattern Intelligence with selected-answer persistence, recurring confusion-pair detection, and focused two-concept drills
+- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, dashboard analytics, remediation-session construction, challenge-variant invariants, confidence calibration, confidence-remediation priorities, and error-pattern aggregation
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
