@@ -52,7 +52,7 @@ The Mastery Dashboard displays confidence-aware review items in this order:
 
 Within the same priority class, more recent responses appear first.
 
-The **Practice priority concepts** action builds a session from the highest-priority concepts across nerves. The current implementation limits the queue to a small focused set rather than replaying the entire challenge bank.
+The **Practice priority concepts** action builds a session from the highest-priority concepts across nerves. The current implementation limits the queue to a small focused set rather than replaying the entire challenge bank. Priority sessions preserve that ordering instead of shuffling the concepts at launch.
 
 ## Relationship to Targeted Remediation
 
