@@ -68,7 +68,7 @@ The dashboard also reports how many events in a pair were high-confidence misses
 
 Each Error Pattern card can launch a focused **Confusion Drill**.
 
-The drill contains the two lesion concepts in the selected pair. The concept most often expected when the confusion occurred is presented first, followed by the paired comparator.
+The drill contains the two lesion concepts in the selected pair. The concept most often expected when the confusion occurred is presented first, followed by the paired comparator. The dashboard's **Practice top confusion** action launches the highest-ranked historical pair using the same two-concept drill.
 
 The standard Anatomica challenge infrastructure is reused, including:
 
