@@ -22,6 +22,10 @@ function cleanConfidence(value) {
   return CONFIDENCE_LEVELS.has(value) ? value : null;
 }
 
+function cleanChoice(value) {
+  return typeof value === 'string' && value.trim() ? value : null;
+}
+
 function cleanStat(stat = {}) {
   return {
     attempts: Math.max(0, safeNumber(stat.attempts)),
@@ -131,6 +135,8 @@ export function recordLocalizationSession(progress, session) {
       levelId: result.levelId,
       correct: Boolean(result.correct),
       confidence: cleanConfidence(result.confidence),
+      selectedNerveId: cleanChoice(result.selectedNerveId),
+      selectedLevelId: cleanChoice(result.selectedLevelId),
     })),
   });
   base.sessions = base.sessions.slice(-MAX_SESSIONS);
