@@ -8,9 +8,9 @@
 
 **From cadaver to clinic, in 3D.**
 
-## Current milestone — v0.3.8 Targeted Remediation
+## Current milestone — v0.3.9 Alternate Clinical Vignettes
 
-Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, adaptive clinical-localization sessions, browser-local mastery tracking, longitudinal learning analytics, and targeted remediation. Learners can inspect progress across all 10 modeled lesion patterns, then launch focused same-nerve practice directly from a weak or selected concept on the Mastery Dashboard.
+Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinical cases, peripheral-nerve localization, lesion-level reasoning, focused motor examination, adaptive clinical-localization sessions, browser-local mastery tracking, longitudinal learning analytics, targeted remediation, and alternate clinical presentations. The localization system still measures the same 10 modeled lesion concepts, but each concept now has two possible vignette presentations so repeated practice depends less on memorizing one fixed stem.
 
 ### Working now
 
@@ -34,8 +34,9 @@ Anatomica now connects upper-limb, wrist, and hand anatomy to interactive clinic
 - **Persistent browser-local mastery tracking with spaced review, due-review sessions, per-nerve summaries, and learner-controlled data clearing**
 - **Longitudinal Mastery Dashboard with recent-session accuracy, mastery states across all 10 lesion patterns, weakest-practiced concepts, momentum summaries, and direct due-review access**
 - **Targeted Remediation that launches from any lesion or weak-concept card and practices the selected lesion first, followed by same-nerve comparator lesions**
+- **Alternate clinical-vignette presentation layer with 20 total stems across the same 10 lesion concepts, selected once per session and kept stable through feedback and 3D reveal**
 - Expanded Quiz Mode with more than 50 anatomy and clinical-identification questions
-- Clinical-content, learner-progress, mastery-dashboard, and targeted-remediation validation in CI so anatomy references, review scheduling, analytics summaries, and focused-practice pools are checked automatically
+- Clinical-content, learner-progress, mastery-dashboard, targeted-remediation, and challenge-variant validation in CI so anatomy references, review scheduling, analytics summaries, focused-practice pools, and vignette invariants are checked automatically
 - GitHub Actions asset conversion, CI build verification, and GitHub Pages deployment
 
 ## Clinical Cases
@@ -83,7 +84,7 @@ See [`docs/LESION_LOCALIZATION.md`](docs/LESION_LOCALIZATION.md) for the localiz
 
 ## Clinical Localization Challenge Mode
 
-v0.3.4 turns the localization engine into a scored clinical-reasoning exercise. The current bank contains **10 short vignettes**, one for each lesion pattern represented in the localization model.
+v0.3.4 turns the localization engine into a scored clinical-reasoning exercise. The scoring model contains **10 lesion concepts**, one for each localization pattern represented in the current nerve model. As of v0.3.9, each concept has a base vignette plus an alternate presentation, producing **20 total vignette presentations across the same 10 scored concepts**.
 
 Each challenge follows the same sequence:
 
@@ -135,6 +136,16 @@ A remediation session starts with the selected lesion pattern, then presents the
 Remediation sessions use the same scored challenge, 3D answer reveal, progress recording, and mastery infrastructure as the rest of the localization system. They are intentionally rule-based and limited by the current challenge bank; they do not claim individualized educational diagnosis or validated competency assessment.
 
 See [`docs/TARGETED_REMEDIATION.md`](docs/TARGETED_REMEDIATION.md) for the session-building rules, dashboard launch behavior, and limitations.
+
+### Alternate vignette presentations
+
+v0.3.9 separates **what is being assessed** from **how the case is presented**. Each of the 10 lesion concepts now has two possible clinical presentations: the original vignette and one alternate stem with different wording, mechanism, or framing where clinically appropriate.
+
+At the start of a session, Anatomica selects one presentation for each included lesion concept and keeps that variant stable throughout answering, feedback, 3D reveal, and session accounting. Progress remains tied to the original challenge ID, nerve, and lesion level, so changing the presentation does not fragment mastery history or spaced-review scheduling.
+
+The variant layer is used by standard difficulty sessions, Adaptive mode, spaced review, and Targeted Remediation. It is designed to reduce simple wording recognition, not to claim a psychometrically validated item bank.
+
+See [`docs/CHALLENGE_VARIANTS.md`](docs/CHALLENGE_VARIANTS.md) for the presentation model, validation rules, and limitations.
 
 ## Motor Test Simulator
 
@@ -220,6 +231,7 @@ Medical knowledge       → src/data/upperLimb.js
 Clinical cases          → src/data/clinicalCases.js
 Nerve + lesion data     → src/data/nerveDeficits.js
 Localization challenges → src/data/localizationChallenges.js
+Challenge variants      → src/data/challengeVariants.js
 Learning questions      → src/data/quizQuestions.js
 Learner progress        → src/learning/progressStore.js
 Mastery analytics       → src/learning/masteryDashboard.js
@@ -261,7 +273,8 @@ Anatomica/
 │   │   ├── upperLimb.js                # Medical knowledge
 │   │   ├── clinicalCases.js            # Clinical scenario layer
 │   │   ├── nerveDeficits.js            # Nerve profiles + lesion levels + motor tests
-│   │   ├── localizationChallenges.js   # Scored localization vignette bank
+│   │   ├── localizationChallenges.js   # Scored localization concept bank
+│   │   ├── challengeVariants.js        # Alternate vignette presentation layer
 │   │   ├── brachialPlexus.js           # Plexus pathway data
 │   │   ├── quizQuestions.js            # Learning question bank
 │   │   ├── anatomyPalette.js           # System + structure color semantics
@@ -280,7 +293,8 @@ Anatomica/
 │   ├── validate_clinical_cases.mjs     # Clinical-content integrity check
 │   ├── validate_progress_store.mjs     # Persistence + spaced-review validation
 │   ├── validate_mastery_dashboard.mjs  # Dashboard analytics validation
-│   └── validate_remediation.mjs        # Targeted-practice pool validation
+│   ├── validate_remediation.mjs        # Targeted-practice pool validation
+│   └── validate_challenge_variants.mjs # Vignette-variant invariant validation
 ├── docs/
 │   ├── ANATOMY_VALIDATION.md           # Visual/anatomical sign-off standard
 │   ├── LESION_LOCALIZATION.md          # Lesion-level reasoning model
@@ -289,6 +303,7 @@ Anatomica/
 │   ├── PERSISTENT_PROGRESS.md          # Browser-local mastery + spaced review
 │   ├── MASTERY_DASHBOARD.md            # Longitudinal learning analytics
 │   ├── TARGETED_REMEDIATION.md         # Dashboard-to-practice remediation workflow
+│   ├── CHALLENGE_VARIANTS.md           # Alternate vignette presentation model
 │   └── MOTOR_TEST_SIMULATOR.md         # Functional-exam model and limitations
 ├── .github/workflows/
 │   ├── build-anatomy-assets.yml
@@ -327,7 +342,8 @@ Anatomica/
 - [x] Persistent browser-local learner progress with mastery summaries and spaced-review scheduling
 - [x] Longitudinal Mastery Dashboard with recent-session trend, lesion-level mastery states, weakest concepts, and due-review access
 - [x] Targeted remediation from lesion-level mastery cards into same-nerve comparator practice
-- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, dashboard analytics, and remediation-session construction
+- [x] Alternate clinical-vignette presentations for all 10 localization concepts
+- [x] Automated validation for cases, nerve profiles, lesion levels, motor tests, challenge difficulty metadata, localization challenges, learner-progress storage, dashboard analytics, remediation-session construction, and challenge-variant invariants
 - [x] Formal anatomy validation checklist
 - [x] CI + GitHub Pages deployment
 - [ ] Visual anatomical sign-off of converted wrist/hand meshes before stronger validation status
