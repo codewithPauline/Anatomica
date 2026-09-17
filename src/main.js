@@ -11,6 +11,7 @@ import { localizationChallengePresentation, randomChallengeVariantIndex } from '
 import { clearLearnerProgress, loadLearnerProgress, recordLocalizationSession, saveLearnerProgress, summarizeLearnerProgress } from './learning/progressStore.js';
 import { buildMasteryDashboard } from './learning/masteryDashboard.js';
 import { buildRemediationSession, remediationFocusLabel } from './learning/remediation.js';
+import { buildConfidenceCalibration, confidenceFeedback, confidenceLabel } from './learning/confidenceCalibration.js';
 import { hydrateRealModels } from './engine/realModelSwap.js';
 import './style.css';
 
@@ -19,7 +20,7 @@ app.innerHTML = `
   <div class="shell">
     <aside class="sidebar">
       <header>
-        <p class="eyebrow">ANATOMICA v0.3</p>
+        <p class="eyebrow">ANATOMICA v0.4</p>
         <h1>Upper Limb Explorer</h1>
         <p class="subtitle">Explore structure, function, pathways, and clinical relevance in an interactive 3D model.</p>
       </header>
@@ -221,12 +222,22 @@ app.innerHTML = `
           <span class="section-label">2 · Choose the lesion level</span>
           <div id="challenge-level-options" class="branch-list"></div>
         </div>
+        <div class="challenge-answer-block confidence-answer-block">
+          <span class="section-label">3 · Rate your confidence</span>
+          <div id="challenge-confidence-options" class="challenge-confidence-grid" role="group" aria-label="Confidence in localization answer">
+            <button class="tool challenge-confidence-button" data-confidence="low" type="button"><b>Unsure</b><span>I am not confident</span></button>
+            <button class="tool challenge-confidence-button" data-confidence="medium" type="button"><b>Moderate</b><span>I think this fits</span></button>
+            <button class="tool challenge-confidence-button" data-confidence="high" type="button"><b>High</b><span>I would commit to this</span></button>
+          </div>
+          <p class="challenge-confidence-note">Self-rating only. Confidence is stored locally with this response and does not change whether an answer is marked correct.</p>
+        </div>
 
         <button id="challenge-submit" class="tool full challenge-submit" type="button" disabled>Submit localization</button>
         <div id="challenge-feedback" class="challenge-feedback" hidden aria-live="polite">
           <strong id="challenge-feedback-title"></strong>
           <p id="challenge-feedback-answer"></p>
           <p id="challenge-feedback-explanation"></p>
+          <p id="challenge-feedback-confidence" class="challenge-feedback-confidence"></p>
         </div>
         <button id="challenge-next" class="tool full" type="button" hidden>Next case</button>
         <div id="challenge-session-summary" class="challenge-session-summary" hidden aria-live="polite">
@@ -262,6 +273,18 @@ app.innerHTML = `
         <div class="mastery-momentum">
           <span class="section-label">Recent momentum</span>
           <b id="mastery-momentum-text">Complete at least two sessions to establish a trend.</b>
+        </div>
+
+        <div class="mastery-section mastery-confidence-section">
+          <span class="section-label">Confidence calibration</span>
+          <div class="mastery-confidence-stats">
+            <div><span>Rated</span><b id="mastery-confidence-rated">0</b></div>
+            <div><span>High-conf accuracy</span><b id="mastery-confidence-high-accuracy">—</b></div>
+            <div><span>High-conf misses</span><b id="mastery-confidence-misses">0</b></div>
+            <div><span>Correct while unsure</span><b id="mastery-confidence-unsure-correct">0</b></div>
+          </div>
+          <p id="mastery-confidence-summary" class="mastery-confidence-summary">Rate confidence on localization challenges to build a confidence profile.</p>
+          <div id="mastery-confidence-bands" class="mastery-confidence-bands"></div>
         </div>
 
         <div class="mastery-section">
@@ -413,6 +436,7 @@ let localizationChallengeSessionRecorded = false;
 let learnerProgress = loadLearnerProgress();
 let selectedChallengeNerveId = null;
 let selectedChallengeLevelId = null;
+let selectedChallengeConfidence = null;
 let quizMode = false;
 let quizIndex = 0;
 let quizCorrect = 0;
@@ -1254,12 +1278,24 @@ function formatMasterySessionDate(value) {
 function renderMasteryDashboard() {
   const summary = challengeProgressSummary();
   const dashboard = buildMasteryDashboard(learnerProgress, summary);
+  const confidence = buildConfidenceCalibration(learnerProgress);
 
   document.querySelector('#mastery-total-sessions').textContent = String(dashboard.totalSessions);
   document.querySelector('#mastery-overall-accuracy').textContent = dashboard.overallAccuracy == null
     ? '—'
     : `${Math.round(dashboard.overallAccuracy * 100)}%`;
   document.querySelector('#mastery-due-review').textContent = String(dashboard.dueReviewCount);
+  document.querySelector('#mastery-confidence-rated').textContent = String(confidence.ratedResponses);
+  document.querySelector('#mastery-confidence-high-accuracy').textContent = confidence.highConfidenceAccuracy == null
+    ? '—'
+    : `${Math.round(confidence.highConfidenceAccuracy * 100)}%`;
+  document.querySelector('#mastery-confidence-misses').textContent = String(confidence.highConfidenceMisses);
+  document.querySelector('#mastery-confidence-unsure-correct').textContent = String(confidence.lowConfidenceCorrect);
+  document.querySelector('#mastery-confidence-summary').textContent = confidence.summary;
+  document.querySelector('#mastery-confidence-bands').innerHTML = confidence.bands.map((band) => {
+    const percent = band.accuracy == null ? null : Math.round(band.accuracy * 100);
+    return `<div><span>${band.label}</span><b>${band.attempts ? `${band.correct}/${band.attempts}` : 'No data'}</b><em>${percent == null ? '—' : `${percent}%`}</em></div>`;
+  }).join('');
 
   const momentum = dashboard.momentum;
   let momentumText = 'Complete at least two sessions to establish a trend.';
@@ -1399,6 +1435,7 @@ function startLocalizationChallengeSession(difficulty = localizationChallengeDif
   localizationChallengeSessionRecorded = false;
   selectedChallengeNerveId = null;
   selectedChallengeLevelId = null;
+  selectedChallengeConfidence = null;
   resetChallengePerformance();
   syncChallengeDifficultyButtons();
   renderPersistentChallengeProgress();
@@ -1420,7 +1457,7 @@ function localizationChallengeVisibleKeys(challenge) {
 
 function syncChallengeSubmit() {
   const submit = document.querySelector('#challenge-submit');
-  submit.disabled = localizationChallengeAnswered || !selectedChallengeNerveId || !selectedChallengeLevelId;
+  submit.disabled = localizationChallengeAnswered || !selectedChallengeNerveId || !selectedChallengeLevelId || !selectedChallengeConfidence;
 }
 
 function renderChallengeLevelOptions() {
@@ -1485,6 +1522,7 @@ function setChallengeCaseVisibility(visible) {
   });
   document.querySelector('#challenge-nerve-options')?.closest('.challenge-answer-block')?.toggleAttribute('hidden', !visible);
   document.querySelector('#challenge-level-options')?.closest('.challenge-answer-block')?.toggleAttribute('hidden', !visible);
+  document.querySelector('#challenge-confidence-options')?.closest('.challenge-answer-block')?.toggleAttribute('hidden', !visible);
 }
 
 function setChallengeNeutralViewer() {
@@ -1509,6 +1547,11 @@ function renderLocalizationChallenge() {
   localizationChallengeAnswered = false;
   selectedChallengeNerveId = null;
   selectedChallengeLevelId = null;
+  selectedChallengeConfidence = null;
+  document.querySelectorAll('.challenge-confidence-button').forEach((button) => {
+    button.classList.remove('active');
+    button.setAttribute('aria-pressed', 'false');
+  });
   const total = localizationChallengeSessionIds.length;
   document.querySelector('#challenge-progress').textContent = `Case ${localizationChallengeSessionPosition + 1} of ${total} · ${challengeDifficultyLabel(challenge.difficulty)}`;
   document.querySelector('#challenge-score').textContent = `${localizationChallengeCorrect} / ${localizationChallengeAttempts}`;
@@ -1591,7 +1634,7 @@ function recordChallengePerformance(challenge, correct) {
 }
 
 function submitLocalizationChallenge() {
-  if (localizationChallengeAnswered || !selectedChallengeNerveId || !selectedChallengeLevelId) return;
+  if (localizationChallengeAnswered || !selectedChallengeNerveId || !selectedChallengeLevelId || !selectedChallengeConfidence) return;
   const challenge = currentLocalizationChallenge();
   if (!challenge) return;
 
@@ -1605,6 +1648,7 @@ function submitLocalizationChallenge() {
     nerveId: challenge.nerveId,
     levelId: challenge.levelId,
     correct,
+    confidence: selectedChallengeConfidence,
   });
 
   const answerNerve = nerveDeficitById(challenge.nerveId);
@@ -1615,6 +1659,7 @@ function submitLocalizationChallenge() {
   document.querySelector('#challenge-feedback-title').textContent = correct ? 'Correct localization.' : 'Not quite.';
   document.querySelector('#challenge-feedback-answer').textContent = `Answer: ${answerNerve?.name ?? challenge.nerveId} · ${answerLevel?.label ?? challenge.levelId}`;
   document.querySelector('#challenge-feedback-explanation').textContent = challenge.explanation;
+  document.querySelector('#challenge-feedback-confidence').textContent = `${confidenceLabel(selectedChallengeConfidence)} confidence · ${confidenceFeedback(correct, selectedChallengeConfidence)}`;
   document.querySelector('#challenge-score').textContent = `${localizationChallengeCorrect} / ${localizationChallengeAttempts}`;
   document.querySelector('#challenge-next').hidden = false;
   syncChallengeSubmit();
@@ -1675,6 +1720,20 @@ document.querySelectorAll('.challenge-difficulty-button').forEach((button) => {
     if (!localizationChallengeMode) return;
     remediationFocus = null;
     startLocalizationChallengeSession(button.dataset.challengeDifficulty);
+  });
+});
+
+document.querySelectorAll('.challenge-confidence-button').forEach((button) => {
+  button.setAttribute('aria-pressed', 'false');
+  button.addEventListener('click', () => {
+    if (localizationChallengeAnswered) return;
+    selectedChallengeConfidence = button.dataset.confidence;
+    document.querySelectorAll('.challenge-confidence-button').forEach((node) => {
+      const active = node.dataset.confidence === selectedChallengeConfidence;
+      node.classList.toggle('active', active);
+      node.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    syncChallengeSubmit();
   });
 });
 
