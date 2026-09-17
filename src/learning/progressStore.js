@@ -2,6 +2,7 @@ const STORAGE_KEY = 'anatomica.localizationProgress.v1';
 const SCHEMA_VERSION = 1;
 const MAX_SESSIONS = 40;
 const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14, 30];
+const CONFIDENCE_LEVELS = new Set(['low', 'medium', 'high']);
 
 export function createEmptyProgress() {
   return {
@@ -15,6 +16,10 @@ export function createEmptyProgress() {
 
 function safeNumber(value, fallback = 0) {
   return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+function cleanConfidence(value) {
+  return CONFIDENCE_LEVELS.has(value) ? value : null;
 }
 
 function cleanStat(stat = {}) {
@@ -125,6 +130,7 @@ export function recordLocalizationSession(progress, session) {
       nerveId: result.nerveId,
       levelId: result.levelId,
       correct: Boolean(result.correct),
+      confidence: cleanConfidence(result.confidence),
     })),
   });
   base.sessions = base.sessions.slice(-MAX_SESSIONS);
