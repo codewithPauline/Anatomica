@@ -45,5 +45,8 @@ jobs:
       - name: Validate confidence remediation
         run: npm run validate:confidence-remediation
 
+      - name: Validate error patterns
+        run: npm run validate:error-patterns
+
       - name: Build
         run: npm run build
