@@ -1,6 +1,6 @@
 {
   "name": "anatomica",
-  "version": "0.3.9",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,8 @@
     "validate:mastery": "node scripts/validate_mastery_dashboard.mjs",
     "validate:remediation": "node scripts/validate_remediation.mjs",
     "validate:variants": "node scripts/validate_challenge_variants.mjs",
-    "validate": "npm run validate:clinical && npm run validate:progress && npm run validate:mastery && npm run validate:remediation && npm run validate:variants",
+    "validate:confidence": "node scripts/validate_confidence_calibration.mjs",
+    "validate": "npm run validate:clinical && npm run validate:progress && npm run validate:mastery && npm run validate:remediation && npm run validate:variants && npm run validate:confidence",
     "assets:extract": "python scripts/prepare_bodyparts3d.py",
     "assets:build": "python scripts/prepare_bodyparts3d.py --convert"
   },
